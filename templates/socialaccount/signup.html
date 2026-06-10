@@ -1,0 +1,110 @@
+{% extends "base_auth.html" %}
+{% load allauth account socialaccount %}
+
+{% block title %}Complete Sign Up — DocChat{% endblock %}
+
+{% block auth_content %}
+<div class="auth-header">
+  <h2 class="auth-card-title">Complete Sign Up ✨</h2>
+  <p class="auth-card-sub">
+    You are about to use your Google account to log in to DocChat. As a final step, please complete the following
+    details:
+  </p>
+</div>
+
+<form id="social-signup-form" method="post" action="{% url 'socialaccount_signup' %}" novalidate>
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div class="auth-alert auth-alert-danger mb-3" role="alert">
+    <i class="bi bi-exclamation-circle-fill"></i>
+    <span>{{ form.non_field_errors|join:", " }}</span>
+  </div>
+  {% endif %}
+
+  <!-- First name + Last name row -->
+  {% if form.first_name or form.last_name %}
+  <div class="form-row-two mb-3">
+    {% if form.first_name %}
+    <div class="form-group">
+      <label for="{{ form.first_name.id_for_label }}" class="form-label">
+        <i class="bi bi-person"></i> First name
+      </label>
+      {{ form.first_name }}
+      {% if form.first_name.errors %}
+      <div class="field-error">
+        <i class="bi bi-exclamation-circle"></i>
+        {% for e in form.first_name.errors %}{{ e }}{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% if form.last_name %}
+    <div class="form-group">
+      <label for="{{ form.last_name.id_for_label }}" class="form-label">
+        Last name
+      </label>
+      {{ form.last_name }}
+      {% if form.last_name.errors %}
+      <div class="field-error">
+        <i class="bi bi-exclamation-circle"></i>
+        {% for e in form.last_name.errors %}{{ e }}{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if form.username %}
+  <div class="form-group mb-3">
+    <label for="{{ form.username.id_for_label }}" class="form-label">
+      <i class="bi bi-at"></i> Username
+    </label>
+    {{ form.username }}
+    {% if form.username.errors %}
+    <div class="field-error">
+      <i class="bi bi-exclamation-circle"></i>
+      {% for e in form.username.errors %}{{ e }}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if form.email %}
+  <div class="form-group mb-4">
+    <label for="{{ form.email.id_for_label }}" class="form-label">
+      <i class="bi bi-envelope"></i> Email address
+    </label>
+    {{ form.email }}
+    {% if form.email.errors %}
+    <div class="field-error">
+      <i class="bi bi-exclamation-circle"></i>
+      {% for e in form.email.errors %}{{ e }}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="form-check mb-4">
+    <input class="form-check-input" type="checkbox" id="agree-terms" name="agree_terms" required>
+    <label class="form-check-label" for="agree-terms">
+      I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+    </label>
+  </div>
+
+  {% if redirect_field_value %}
+  <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+  {% endif %}
+
+  <button id="btn-social-signup-submit" type="submit" class="btn-primary-custom">
+    <i class="bi bi-person-plus-fill"></i> Complete Sign Up
+  </button>
+</form>
+
+<div class="separator"></div>
+<p class="auth-switch-text">
+  Want to use a different account?
+  <a href="{% url 'account_login' %}" class="auth-switch-link">Sign in instead</a>
+</p>
+{% endblock %}

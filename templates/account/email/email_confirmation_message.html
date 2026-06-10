@@ -1,0 +1,30 @@
+{% extends "emails/base_email.html" %}
+
+{% block header %}
+<div class="email-header">
+    <div class="logo">DocChat</div>
+    <h1>Verify Your Email</h1>
+    <p>Finish setting up your account</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<h2>Hello {{ user.first_name|default:user.username }},</h2>
+
+<p>Thanks for signing up! Please verify your email address so we can activate your account.</p>
+
+{% if code %}
+<p>Enter this verification code in the open browser window:</p>
+<div class="code-box">{{ code }}</div>
+{% else %}
+<p>Click the button below to verify your email:</p>
+<div class="text-center">
+    <a href="{{ activate_url }}" class="cta-button">Verify Email</a>
+</div>
+<div class="code-box">{{ activate_url }}</div>
+{% endif %}
+
+<p>If you didn't sign up, you can ignore this email.</p>
+
+<p>Best regards,<br><strong>The DocChat Team</strong></p>
+{% endblock %}
