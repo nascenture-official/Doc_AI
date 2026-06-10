@@ -1,0 +1,18 @@
+Hello {{ user.first_name|default:user.username }},
+
+Thank you for signing up for DocChat.
+
+{% if code %}Your verification code is:
+
+{{ code }}
+
+Please enter this code in your open browser window.
+{% else %}Please verify your email by clicking the link below:
+
+{{ activate_url }}
+{% endif %}
+
+If you did not sign up, you can ignore this email.
+
+Thanks,
+The DocChat Team

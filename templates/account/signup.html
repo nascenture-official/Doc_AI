@@ -1,0 +1,209 @@
+{% extends "base_auth.html" %}
+{% load allauth account socialaccount %}
+
+{% block title %}Create Account — DocChat{% endblock %}
+
+{% block auth_content %}
+<div class="auth-header">
+  <h2 class="auth-card-title text-center">Create your account</h2>
+</div>
+
+<!-- Google OAuth -->
+{% get_providers as socialaccount_providers %}
+{% if socialaccount_providers %}
+{% provider_login_url "google" as google_url %}
+<a id="btn-google-signup" href="{{ google_url }}" class="btn-google mb-3">
+  <svg class="google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      fill="#4285F4" />
+    <path
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      fill="#34A853" />
+    <path
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      fill="#FBBC05" />
+    <path
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      fill="#EA4335" />
+  </svg>
+  Sign up with Google
+</a>
+<div class="or-divider">or sign up with email</div>
+{% endif %}
+
+<!-- Signup form -->
+<form id="signup-form" method="post" action="{% url 'account_signup' %}" novalidate>
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div class="auth-alert auth-alert-danger mb-3" role="alert">
+    <i class="bi bi-exclamation-circle-fill"></i>
+    <span>{{ form.non_field_errors|join:", " }}</span>
+  </div>
+  {% endif %}
+
+  <!-- First name + Last name row -->
+  <div class="form-row-two mb-3">
+    <div class="form-group">
+      <label for="{{ form.first_name.id_for_label }}" class="form-label">
+        <i class="bi bi-person"></i> First name
+      </label>
+      {{ form.first_name }}
+      {% if form.first_name.errors %}
+      <div class="field-error">
+        <i class="bi bi-exclamation-circle"></i>
+        {% for e in form.first_name.errors %}{{ e }}{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="form-group">
+      <label for="{{ form.last_name.id_for_label }}" class="form-label">
+        Last name
+      </label>
+      {{ form.last_name }}
+      {% if form.last_name.errors %}
+      <div class="field-error">
+        <i class="bi bi-exclamation-circle"></i>
+        {% for e in form.last_name.errors %}{{ e }}{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="form-group mb-3">
+    <label for="{{ form.username.id_for_label }}" class="form-label">
+      <i class="bi bi-at"></i> Username
+    </label>
+    {{ form.username }}
+    {% if form.username.errors %}
+    <div class="field-error">
+      <i class="bi bi-exclamation-circle"></i>
+      {% for e in form.username.errors %}{{ e }}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="form-group mb-3">
+    <label for="{{ form.email.id_for_label }}" class="form-label">
+      <i class="bi bi-envelope"></i> Email address
+    </label>
+    {{ form.email }}
+    {% if form.email.errors %}
+    <div class="field-error">
+      <i class="bi bi-exclamation-circle"></i>
+      {% for e in form.email.errors %}{{ e }}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="form-group mb-3">
+    <label for="{{ form.password1.id_for_label }}" class="form-label">
+      <i class="bi bi-lock"></i> Password
+    </label>
+    <div class="input-password-wrapper">
+      {{ form.password1 }}
+      <button type="button" class="toggle-password" aria-label="Toggle password visibility" tabindex="-1">
+        <i class="bi bi-eye"></i>
+      </button>
+    </div>
+    <!-- Strength bar -->
+    <div class="strength-bar-wrapper mt-2">
+      <div class="strength-bar-track">
+        <div id="strength-bar"></div>
+      </div>
+      <span id="strength-label"></span>
+    </div>
+    {% if form.password1.errors %}
+    <div class="field-error mt-1">
+      <i class="bi bi-exclamation-circle"></i>
+      {% for e in form.password1.errors %}{{ e }}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="form-group mb-4">
+    <label for="{{ form.password2.id_for_label }}" class="form-label">
+      <i class="bi bi-lock-fill"></i> Confirm password
+    </label>
+    <div class="input-password-wrapper">
+      {{ form.password2 }}
+      <button type="button" class="toggle-password" aria-label="Toggle confirm password visibility" tabindex="-1">
+        <i class="bi bi-eye"></i>
+      </button>
+    </div>
+    {% if form.password2.errors %}
+    <div class="field-error">
+      <i class="bi bi-exclamation-circle"></i>
+      {% for e in form.password2.errors %}{{ e }}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="form-check mb-4">
+    <input class="form-check-input" type="checkbox" id="agree-terms" name="agree_terms" required>
+    <label class="form-check-label" for="agree-terms">
+      I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+    </label>
+  </div>
+
+  <button id="btn-signup-submit" type="submit" class="btn-primary-custom">
+    <i class="bi bi-person-plus-fill"></i> Create Account
+  </button>
+</form>
+
+<div class="separator"></div>
+<p class="auth-switch-text">
+  Already have an account?
+  <a href="{% url 'account_login' %}" class="auth-switch-link">Sign in</a>
+</p>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Password visibility toggles
+  document.querySelectorAll('.toggle-password').forEach(btn => {
+    btn.addEventListener('click', function () {
+      const wrapper = this.closest('.input-password-wrapper');
+      const input = wrapper.querySelector('input');
+      const icon = this.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+      }
+    });
+  });
+
+  // Password strength meter
+  const p1Input = document.getElementById('id_password1');
+  const bar = document.getElementById('strength-bar');
+  const label = document.getElementById('strength-label');
+
+  if (p1Input && bar && label) {
+    p1Input.addEventListener('input', function () {
+      const val = this.value;
+      let score = 0;
+      if (val.length >= 8) score++;
+      if (/[A-Z]/.test(val)) score++;
+      if (/[0-9]/.test(val)) score++;
+      if (/[^A-Za-z0-9]/.test(val)) score++;
+
+      const levels = [
+        { pct: '0%', color: 'transparent', text: '' },
+        { pct: '25%', color: '#ef4444', text: 'Weak' },
+        { pct: '50%', color: '#f59e0b', text: 'Fair' },
+        { pct: '75%', color: '#38bdf8', text: 'Good' },
+        { pct: '100%', color: '#22c55e', text: 'Strong' },
+      ];
+      const lvl = val.length === 0 ? levels[0] : levels[Math.max(1, score)];
+      bar.style.width = lvl.pct;
+      bar.style.background = lvl.color;
+      label.textContent = lvl.text;
+      label.style.color = lvl.color;
+    });
+  }
+</script>
+{% endblock %}

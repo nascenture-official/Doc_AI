@@ -1,0 +1,40 @@
+{% extends "base_auth.html" %}
+
+{% block title %}Google Login — DocChat{% endblock %}
+
+{% block auth_content %}
+  <div class="text-center py-3">
+    <div style="font-size:56px;margin-bottom:20px;">🔄</div>
+    <h2 class="auth-card-title">Connecting with Google</h2>
+    <p class="auth-card-sub">Please wait while we complete the sign-in process…</p>
+
+    <div class="d-flex justify-content-center mt-4">
+      <div class="spinner-border text-primary" role="status" style="width:40px;height:40px;">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <form id="social-login-form" method="post">
+      {% csrf_token %}
+      {% if form.errors %}
+        <div class="alert alert-danger mt-4 text-start" role="alert">
+          {{ form.non_field_errors|join:", " }}
+        </div>
+        {{ form.as_p }}
+      {% endif %}
+      <!-- We hide the button if there are no errors so the spinner stays visible, but we need the form to exist -->
+      <button id="btn-social-confirm" type="submit" class="btn-primary-custom mt-4 {% if not form.errors %}d-none{% endif %}">
+        Continue
+      </button>
+    </form>
+
+    {% if not form.errors %}
+    <script>
+      // Auto-submit the form to proceed to Google OAuth immediately
+      document.addEventListener("DOMContentLoaded", function() {
+        document.getElementById("social-login-form").submit();
+      });
+    </script>
+    {% endif %}
+  </div>
+{% endblock %}

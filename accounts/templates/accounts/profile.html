@@ -1,0 +1,134 @@
+{% extends "base_app.html" %}
+
+{% block title %}Edit Profile — DocChat{% endblock %}
+{% block page_title %}Edit Profile{% endblock %}
+
+{% block content %}
+
+<div class="row g-4 justify-content-center">
+
+  <!-- Left: Avatar card -->
+  <div class="col-lg-4 col-md-5">
+
+    <div class="section-card text-center">
+      <div class="profile-avatar-wrapper">
+        <div class="avatar-initials-lg mx-auto {% if profile.avatar %}d-none{% endif %}">{{ profile.get_initials }}</div>
+        <img id="avatar-preview" src="{% if profile.avatar %}{{ profile.avatar.url }}{% endif %}"
+             alt="Avatar" class="avatar-lg {% if not profile.avatar %}d-none{% endif %}" style="border:3px solid var(--border);">
+        <button type="button" id="avatar-overlay-btn" class="profile-avatar-overlay" title="Change avatar">
+          <i class="bi bi-camera-fill text-white" style="font-size:11px;"></i>
+        </button>
+      </div>
+
+      <!-- Styled Remove Avatar button -->
+      <button type="button" id="btn-remove-avatar" class="btn btn-sm btn-outline-danger mt-3 {% if not profile.avatar %}d-none{% endif %}" style="font-size:12px;padding:6px 12px;border-radius:var(--radius-sm);">
+        <i class="bi bi-trash-fill me-1"></i> Remove Avatar
+      </button>
+
+      <h3 style="font-size:17px;font-weight:600;margin-top:16px;margin-bottom:4px;">
+        {{ request.user.get_full_name|default:request.user.username }}
+      </h3>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">
+        @{{ request.user.username }}
+      </p>
+      <p style="font-size:12px;color:var(--text-muted);">
+        Member since {{ request.user.date_joined|date:"N j, Y" }}
+      </p>
+
+      <div class="separator"></div>
+
+      <!-- Connected accounts -->
+      <p class="text-start" style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">
+        Connected Accounts
+      </p>
+      {% for account in request.user.socialaccount_set.all %}
+        {% if account.provider == 'google' %}
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <svg width="16" height="16" viewBox="0 0 24 24">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            <span style="font-size:13px;color:var(--text-secondary);">Google Account</span>
+            <span class="badge-custom badge-green ms-auto" style="font-size:10px;">Connected</span>
+          </div>
+        {% endif %}
+      {% empty %}
+        <p style="font-size:12px;color:var(--text-muted);">No social accounts connected.</p>
+      {% endfor %}
+
+      <div class="separator"></div>
+      <a href="{% url 'account_change_password' %}" class="btn-outline-custom w-100" style="font-size:13px;">
+        <i class="bi bi-shield-lock"></i> Change Password
+      </a>
+    </div>
+
+  </div>
+
+  <!-- Right: Edit form -->
+  <div class="col-lg-8 col-md-7">
+    <div class="section-card">
+      <h3 class="section-title mb-4"><i class="bi bi-pencil-fill me-2 text-secondary"></i>Personal Information</h3>
+
+      <form id="profile-form" method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+
+        <!-- Hidden file input -->
+        <div class="d-none">
+          {{ form.avatar }}
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label for="{{ form.first_name.id_for_label }}" class="form-label">First name</label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}
+              <ul class="errorlist">{% for e in form.first_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+          </div>
+          <div class="col-md-6">
+            <label for="{{ form.last_name.id_for_label }}" class="form-label">Last name</label>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}
+              <ul class="errorlist">{% for e in form.last_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Email address</label>
+          <input type="text" class="form-control" value="{{ request.user.email }}" disabled>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Username</label>
+          <input type="text" class="form-control" value="@{{ request.user.username }}" disabled>
+        </div>
+
+        <div class="mb-4">
+          <label for="{{ form.bio.id_for_label }}" class="form-label">Bio</label>
+          {{ form.bio }}
+          <small class="text-muted-custom" style="font-size:11px;">
+            Max 300 characters.
+          </small>
+          {% if form.bio.errors %}
+            <ul class="errorlist">{% for e in form.bio.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+
+        <div class="d-flex gap-3">
+          <button id="btn-save-profile" type="submit" class="btn-primary-custom" style="width:auto;padding:11px 28px;">
+            <i class="bi bi-check-lg"></i> Save Changes
+          </button>
+          <a href="{% url 'dashboard' %}" class="btn-outline-custom">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "base_app.html" %}
+
+{% block title %}Dashboard — DocChat{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Welcome Banner -->
+<div class="welcome-banner">
+  <div>
+    <h2 class="welcome-title">
+      Welcome back, {{ request.user.first_name|default:request.user.username }}! 👋
+    </h2>
+    <p class="welcome-sub">
+      Here's an overview of your DocChat activity. Ready to chat with your documents?
+    </p>
+  </div>
+  <a href="#" id="btn-upload-doc" class="btn-primary-custom" style="width:auto;white-space:nowrap;">
+    <i class="bi bi-plus-lg"></i> Upload Document
+  </a>
+</div>
+
+<!-- Stats Row -->
+<div class="stats-grid">
+
+  <div class="stat-card indigo">
+    <div class="stat-icon indigo">
+      <i class="bi bi-file-earmark-pdf-fill"></i>
+    </div>
+    <div>
+      <div class="stat-value">0</div>
+      <div class="stat-label">Documents Uploaded</div>
+    </div>
+  </div>
+
+  <div class="stat-card green">
+    <div class="stat-icon green">
+      <i class="bi bi-chat-dots-fill"></i>
+    </div>
+    <div>
+      <div class="stat-value">0</div>
+      <div class="stat-label">Chat Sessions</div>
+    </div>
+  </div>
+
+  <div class="stat-card amber">
+    <div class="stat-icon amber">
+      <i class="bi bi-lightning-charge-fill"></i>
+    </div>
+    <div>
+      <div class="stat-value">0</div>
+      <div class="stat-label">Questions Asked</div>
+    </div>
+  </div>
+
+  <div class="stat-card blue">
+    <div class="stat-icon blue">
+      <i class="bi bi-search"></i>
+    </div>
+    <div>
+      <div class="stat-value">0</div>
+      <div class="stat-label">Searches Made</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Content Row -->
+<div class="row g-4">
+
+  <!-- Recent Activity -->
+  <div class="col-lg-7">
+    <div class="section-card h-100">
+      <div class="section-card-header">
+        <h3 class="section-title"><i class="bi bi-clock-history me-2 text-secondary"></i>Recent Activity</h3>
+        <span class="badge-custom badge-indigo">Live</span>
+      </div>
+
+      <div class="activity-item">
+        <div class="activity-dot indigo"></div>
+        <div>
+          <div class="activity-text">Account created successfully 🎉</div>
+          <div class="activity-time">Just now</div>
+        </div>
+      </div>
+
+      <div style="text-align:center;padding:32px 0;color:var(--text-muted);">
+        <i class="bi bi-inbox" style="font-size:40px;opacity:0.4;display:block;margin-bottom:12px;"></i>
+        <p style="font-size:14px;">No activity yet. Upload your first document to get started!</p>
+        <a href="#" class="btn-outline-custom mt-2" style="width:auto;display:inline-flex;">
+          <i class="bi bi-plus-lg"></i> Upload Document
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions + Profile -->
+  <div class="col-lg-5">
+
+    <!-- Profile card -->
+    <div class="section-card mb-4">
+      <div class="section-card-header">
+        <h3 class="section-title"><i class="bi bi-person-circle me-2 text-secondary"></i>Your Profile</h3>
+        <a href="{% url 'profile' %}" class="badge-custom badge-indigo text-decoration-none">Edit</a>
+      </div>
+
+      <div class="d-flex align-items-center gap-3">
+        {% if profile.avatar %}
+          <img src="{{ profile.avatar.url }}" alt="Avatar" class="avatar-lg">
+        {% else %}
+          <div class="avatar-initials-lg">{{ profile.get_initials }}</div>
+        {% endif %}
+
+        <div>
+          <div style="font-size:17px;font-weight:600;color:var(--text-primary);">
+            {{ request.user.get_full_name|default:request.user.username }}
+          </div>
+          <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">
+            @{{ request.user.username }}
+          </div>
+          <span class="badge-custom badge-green">
+            <i class="bi bi-patch-check-fill"></i> Verified
+          </span>
+        </div>
+      </div>
+
+      {% if profile.bio %}
+        <div class="separator"></div>
+        <p style="font-size:13px;color:var(--text-secondary);">{{ profile.bio }}</p>
+      {% endif %}
+    </div>
+
+    <!-- Quick actions -->
+    <div class="section-card">
+      <h3 class="section-title mb-3"><i class="bi bi-grid me-2 text-secondary"></i>Quick Actions</h3>
+
+      <div class="d-grid gap-2">
+        <a href="#" id="qa-upload" class="btn-primary-custom" style="font-size:13px;padding:10px;">
+          <i class="bi bi-cloud-upload-fill"></i> Upload PDF
+        </a>
+        <a href="#" id="qa-chat" class="btn-outline-custom" style="font-size:13px;padding:10px;">
+          <i class="bi bi-chat-dots"></i> Start Chatting
+        </a>
+        <a href="#" id="qa-search" class="btn-outline-custom" style="font-size:13px;padding:10px;">
+          <i class="bi bi-search"></i> Search Documents
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,9 @@
+Django>=5.0
+python-decouple
+Pillow
+django-crispy-forms
+crispy-bootstrap5
+django-allauth[google]
+requests
+PyJWT
+cryptography
