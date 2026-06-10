@@ -1,0 +1,32 @@
+{% extends "base_auth.html" %}
+{% load account %}
+
+{% block title %}Sign Out — DocChat{% endblock %}
+
+{% block auth_content %}
+  <div class="text-center py-2">
+    <!-- Glowing Red Icon Container -->
+    <div class="logout-icon-container">
+      <div class="logout-icon-glow"></div>
+      <i class="bi bi-box-arrow-right logout-icon"></i>
+    </div>
+
+    <h2 class="auth-card-title">Sign Out</h2>
+    <p class="auth-card-sub mb-4">
+      You are currently signed in as:<br>
+      <span class="user-email-badge">{{ request.user.email }}</span>
+    </p>
+
+    <form method="post" action="{% url 'account_logout' %}">
+      {% csrf_token %}
+      <button id="btn-confirm-logout" type="submit" class="btn-primary-custom mb-3"
+              style="background: linear-gradient(135deg, #ef4444, #b91c1c); box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);">
+        <i class="bi bi-box-arrow-right"></i> Yes, Sign Out
+      </button>
+    </form>
+
+    <a href="{% url 'dashboard' %}" class="btn-outline-custom">
+      <i class="bi bi-arrow-left"></i> Go Back to Dashboard
+    </a>
+  </div>
+{% endblock %}

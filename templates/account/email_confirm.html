@@ -1,0 +1,33 @@
+{% extends "base_auth.html" %}
+{% load account %}
+
+{% block title %}Confirm Email — DocChat{% endblock %}
+
+{% block auth_content %}
+  <div class="text-center py-3">
+    {% if confirmation %}
+      <div style="font-size:56px;margin-bottom:20px;">✅</div>
+      <h2 class="auth-card-title">Confirm your email</h2>
+      <p class="auth-card-sub">
+        Please confirm that <strong>{{ confirmation.email_address.email }}</strong>
+        is your email address.
+      </p>
+      <form method="post">
+        {% csrf_token %}
+
+        <button id="btn-confirm-email" type="submit" class="btn-primary-custom mt-2">
+          <i class="bi bi-patch-check-fill"></i> Confirm Email Address
+        </button>
+      </form>
+    {% else %}
+      <div style="font-size:56px;margin-bottom:20px;">⚠️</div>
+      <h2 class="auth-card-title">Invalid Link</h2>
+      <p class="auth-card-sub">
+        This verification link is invalid or has already been used.
+      </p>
+      <a href="{% url 'account_login' %}" class="btn-primary-custom">
+        <i class="bi bi-arrow-left"></i> Back to Sign In
+      </a>
+    {% endif %}
+  </div>
+{% endblock %}
