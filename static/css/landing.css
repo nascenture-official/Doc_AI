@@ -72,22 +72,6 @@ html[data-theme="light"], :root[data-theme="light"] {
   --hero-secondary-border: #cbd5e1;
   --hero-secondary-hover: #f1f5f9;
   --logo-gradient-start: #0f172a;
-}
-
-/* ── Base reset & font ──────────────────────────────────── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-body.landing-page {
-  font-family: 'Inter', system-ui, sans-serif;
-  background: var(--hero-bg);
   color: var(--text-primary);
   font-size: 15px;
   line-height: 1.6;
@@ -1009,6 +993,7 @@ a {
 .fade-in-up[data-delay="4"] { transition-delay: 0.4s; }
 .fade-in-up[data-delay="5"] { transition-delay: 0.5s; }
 .fade-in-up[data-delay="6"] { transition-delay: 0.6s; }
+<<<<<<< HEAD
 
 /* ── Light Theme Custom Overrides ────────────────────────── */
 html[data-theme="light"] {
@@ -1090,3 +1075,5 @@ body.landing-page,
 .lp-mobile-menu {
   transition: background 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease !important;
 }
+=======
+>>>>>>> origin/main
