@@ -1,0 +1,423 @@
+{% extends "base_app.html" %}
+{% load static %}
+{% load markdown_extras %}
+
+{% block title %}{{ document.title }} — DocChat{% endblock %}
+{% block page_title %}Document Details{% endblock %}
+
+{% block extra_css %}
+<style>
+  .detail-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    padding: 32px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .detail-header-section {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 30px;
+  }
+
+  .doc-icon-large {
+    font-size: 56px;
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.07);
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    border-radius: var(--radius);
+    width: 84px;
+    height: 84px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .doc-meta-info h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 8px 0;
+    word-break: break-all;
+  }
+
+  .doc-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+
+  .meta-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+  }
+
+  .meta-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
+  .meta-value {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .summary-container {
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    min-height: 200px;
+  }
+
+  .summary-markdown {
+    color: var(--text-secondary);
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .summary-markdown h1, .summary-markdown h2, .summary-markdown h3 {
+    color: var(--text-primary);
+    margin-top: 24px;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .summary-markdown h1 { font-size: 1.4rem; }
+  .summary-markdown h2 { font-size: 1.2rem; }
+  .summary-markdown h3 { font-size: 1.05rem; }
+
+  .summary-markdown p {
+    margin-bottom: 16px;
+  }
+
+  .summary-markdown ul, .summary-markdown ol {
+    margin-bottom: 16px;
+    padding-left: 20px;
+  }
+
+  .summary-markdown li {
+    margin-bottom: 6px;
+  }
+
+  .nav-tabs-custom {
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+    gap: 8px;
+  }
+
+  .nav-tabs-custom .nav-link {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-weight: 500;
+    padding: 10px 16px;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    position: relative;
+    transition: all var(--transition);
+  }
+
+  .nav-tabs-custom .nav-link:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .nav-tabs-custom .nav-link.active {
+    color: var(--primary-light);
+  }
+
+  .nav-tabs-custom .nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--primary);
+  }
+
+  .action-buttons-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .btn-action-lg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 14.5px;
+    font-weight: 500;
+    transition: all var(--transition);
+    cursor: pointer;
+  }
+
+  .btn-chat {
+    background: var(--primary);
+    border: 1px solid var(--primary);
+    color: #fff;
+  }
+
+  .btn-chat:hover {
+    background: var(--primary-light);
+    border-color: var(--primary-light);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+
+  .btn-download {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+
+  .btn-download:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+  }
+
+  .btn-delete-lg {
+    background: rgba(239, 68, 68, 0.06);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: var(--danger);
+  }
+
+  .btn-delete-lg:hover {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: var(--danger);
+  }
+
+  .badge-status-detail {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .badge-status-detail.processing {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+  }
+
+  .badge-status-detail.ready {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--success);
+  }
+
+  .badge-status-detail.failed {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+  
+  <div class="mb-4">
+    <a href="{% url 'documents:list' %}" class="btn btn-outline-custom border-0 p-0 text-secondary">
+      <i class="bi bi-arrow-left me-1"></i> Back to Documents
+    </a>
+  </div>
+
+  <div class="detail-card">
+    <!-- Header Section -->
+    <div class="detail-header-section">
+      <div class="d-flex align-items-center gap-3">
+        <div class="doc-icon-large">
+          <i class="bi bi-file-earmark-pdf-fill"></i>
+        </div>
+        <div class="doc-meta-info">
+          <h2>{{ document.title }}</h2>
+          {% if document.status == 'ready' %}
+            <span class="badge-status-detail ready">
+              <i class="bi bi-check-circle-fill"></i> Ready for Chat
+            </span>
+          {% elif document.status == 'failed' %}
+            <span class="badge-status-detail failed" title="{{ document.error_message }}">
+              <i class="bi bi-exclamation-circle-fill"></i> Processing Failed
+            </span>
+          {% else %}
+            <span class="badge-status-detail processing">
+              <span class="spinner-border spinner-border-sm me-1" style="width:14px;height:14px;border-width:2px;"></span> Processing Document...
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="action-buttons-group">
+        {% if document.status == 'ready' %}
+          <a href="#" class="btn-action-lg btn-chat">
+            <i class="bi bi-chat-fill"></i> Chat with Document
+          </a>
+        {% endif %}
+        <a href="{% url 'documents:download' document.id %}" class="btn-action-lg btn-download" title="Download Original PDF">
+          <i class="bi bi-download"></i> Download
+        </a>
+        <button type="button" class="btn-action-lg btn-delete-lg btn-delete-doc"
+                data-id="{{ document.id }}"
+                data-url="{% url 'documents:delete' document.id %}">
+          <i class="bi bi-trash"></i> Delete
+        </button>
+      </div>
+    </div>
+
+    <!-- Metadata Grid -->
+    <div class="doc-meta-grid">
+      <div class="meta-item">
+        <div class="meta-label">File Size</div>
+        <div class="meta-value">{{ document.file_size|filesizeformat }}</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Page Count</div>
+        <div class="meta-value">{{ document.page_count }} pages</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Uploaded On</div>
+        <div class="meta-value">{{ document.uploaded_at|date:"M d, Y, I:i A" }}</div>
+      </div>
+      {% if document.processed_at %}
+      <div class="meta-item">
+        <div class="meta-label">Processed On</div>
+        <div class="meta-value">{{ document.processed_at|date:"M d, Y, I:i A" }}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Fail info if failed -->
+    {% if document.status == 'failed' and document.error_message %}
+      <div class="alert alert-danger d-flex align-items-center gap-2 mb-4" role="alert" style="background:rgba(239, 68, 68, 0.08);border-color:rgba(239, 68, 68, 0.2);color:#fca5a5;">
+        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+        <div>
+          <strong>Error Details:</strong> {{ document.error_message }}
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Tabs for Summaries -->
+    <ul class="nav nav-tabs nav-tabs-custom" id="summaryTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="short-summary-tab" data-bs-toggle="tab" data-bs-target="#short-summary" type="button" role="tab" aria-controls="short-summary" aria-selected="true">
+          Short Summary
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="detailed-summary-tab" data-bs-toggle="tab" data-bs-target="#detailed-summary" type="button" role="tab" aria-controls="detailed-summary" aria-selected="false">
+          Detailed Summary
+        </button>
+      </li>
+    </ul>
+
+    <!-- Tab Contents -->
+    <div class="tab-content" id="summaryTabContent">
+      <!-- Short Summary -->
+      <div class="tab-pane fade show active" id="short-summary" role="tabpanel" aria-labelledby="short-summary-tab">
+        <div class="summary-container">
+          {% if document.status == 'ready' %}
+            <div class="summary-markdown">
+              {{ document.summary_short|markdown_to_html }}
+            </div>
+          {% elif document.status == 'failed' %}
+            <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Summaries are unavailable because document processing failed.</p>
+          {% else %}
+            <div class="text-center py-5">
+              <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="text-muted">Generating summary. This will take a moment...</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Detailed Summary -->
+      <div class="tab-pane fade" id="detailed-summary" role="tabpanel" aria-labelledby="detailed-summary-tab">
+        <div class="summary-container">
+          {% if document.status == 'ready' %}
+            <div class="summary-markdown">
+              {{ document.summary_long|markdown_to_html }}
+            </div>
+          {% elif document.status == 'failed' %}
+            <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Summaries are unavailable because document processing failed.</p>
+          {% else %}
+            <div class="text-center py-5">
+              <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="text-muted">Generating detailed summary. Please wait...</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  $(function() {
+    // Delete Document logic (uses code from upload.js via class delegation)
+    $('.btn-delete-doc').on('click', function() {
+      const $btn = $(this);
+      const docId = $btn.data('id');
+      const deleteUrl = $btn.data('url');
+      const csrfToken = '{{ csrf_token }}';
+
+      if (!confirm('Are you sure you want to delete this document? This cannot be undone.')) {
+        return;
+      }
+
+      $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status"></span> Deleting...');
+
+      fetch(deleteUrl, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Server returned ' + res.status);
+        return res.json();
+      })
+      .then(data => {
+        if (data.success) {
+          window.location.href = "{% url 'documents:list' %}";
+        } else {
+          showToast(data.error || 'Failed to delete document.', 'danger');
+          $btn.prop('disabled', false).html('<i class="bi bi-trash"></i> Delete');
+        }
+      })
+      .catch(err => {
+        console.error('Delete error:', err);
+        showToast('Something went wrong. Please try again.', 'danger');
+        $btn.prop('disabled', false).html('<i class="bi bi-trash"></i> Delete');
+      });
+    });
+  });
+</script>
+{% endblock %}

@@ -20,6 +20,12 @@ class CustomSignupForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={"placeholder": "Last name (optional)", "class": "form-control"}),
     )
+    agree_terms = forms.BooleanField(
+        required=True,
+        error_messages={
+            "required": "You must agree to the Terms of Service and Privacy Policy to register."
+        }
+    )
 
     def signup(self, request, user):
         """Called by allauth after user is saved — persist extra fields."""
@@ -72,7 +78,11 @@ class ProfileUpdateForm(forms.ModelForm):
         if self.user:
             self.user.first_name = self.cleaned_data.get("first_name", "")
             self.user.last_name = self.cleaned_data.get("last_name", "")
+            # Flag the user so save_user_profile signal skips the redundant
+            # profile.save() — we are about to save it ourselves below.
+            self.user._profile_saving = True
             self.user.save()
+            self.user._profile_saving = False
         if commit:
             profile.save()
         return profile

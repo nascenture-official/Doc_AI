@@ -1,0 +1,24 @@
+{% load markdown_extras %}
+
+<!-- ── User Message Bubble ── -->
+<div class="message-row user" id="user-msg-{{ user_msg.id }}">
+  <div class="chat-bubble">
+    <div class="message-text">{{ user_msg.content|linebreaksbr }}</div>
+  </div>
+</div>
+
+<!-- ── AI Response Placeholder — auto-triggers Phase 2 via HTMX ── -->
+<div class="message-row assistant" id="ai-placeholder-{{ user_msg.id }}"
+     hx-get="{{ ai_response_url }}"
+     hx-trigger="load"
+     hx-swap="outerHTML"
+     hx-target="this">
+  <div class="chat-bubble ai-thinking-bubble">
+    <div class="typing-indicator-dots">
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+    <span class="ai-thinking-label">AI is thinking…</span>
+  </div>
+</div>

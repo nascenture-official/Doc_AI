@@ -33,6 +33,70 @@
   --radius-sm: 8px;
   --radius-lg: 16px;
   --transition: 0.2s ease;
+
+  /* Theme-specific tokens (Dark Mode Defaults) */
+  --bg-input: rgba(18, 18, 31, 0.8);
+  --border-input: rgba(255, 255, 255, 0.09);
+  --border-input-hover: rgba(255, 255, 255, 0.18);
+  --bg-toast: rgba(26, 26, 46, 0.96);
+  --shadow-toast: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 24px rgba(99, 102, 241, 0.05);
+  --shadow-card: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(99, 102, 241, 0.08);
+  --bg-google-btn: rgba(255, 255, 255, 0.03);
+  --border-google-btn: rgba(255, 255, 255, 0.08);
+  --bg-google-btn-hover: rgba(255, 255, 255, 0.08);
+  --border-google-btn-hover: rgba(255, 255, 255, 0.18);
+
+  --success-bg: rgba(34, 197, 94, 0.12);
+  --success-text: #86efac;
+  --danger-bg: rgba(239, 68, 68, 0.12);
+  --danger-text: #fca5a5;
+  --info-bg: rgba(56, 189, 248, 0.12);
+  --info-text: #7dd3fc;
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --warning-text: #fde68a;
+
+  --logo-gradient-start: #fff;
+}
+
+/* ── Light Theme Variables ───────────────────────────────── */
+html[data-theme="light"], :root[data-theme="light"] {
+  --bg-base: #f1f5f9;          /* Soft light slate/grey background */
+  --bg-surface: rgba(255, 255, 255, 0.45); /* Frosted glass white surface */
+  --bg-card: rgba(255, 255, 255, 0.6);    /* Frosted glass white card */
+  --bg-card-hover: rgba(255, 255, 255, 0.85); /* Semi-solid card hover */
+  --border: rgba(15, 23, 42, 0.12); /* Soft slate border */
+  --border-focus: rgba(99, 102, 241, 0.4);
+
+  --primary: #4f46e5;          /* Premium indigo primary */
+  --primary-light: #6366f1;    /* Lighter indigo */
+  --primary-dark: #3730a3;     /* Darker indigo */
+  --primary-glow: rgba(99, 102, 241, 0.15);
+
+  --text-primary: #0f172a;     /* Slate 900 for primary text */
+  --text-secondary: #475569;   /* Slate 600 for secondary text */
+  --text-muted: #64748b;       /* Slate 500 for muted text */
+
+  --bg-input: #ffffff;
+  --border-input: #94a3b8;     /* Darker grey outline for visible form borders */
+  --border-input-hover: #475569; /* Darker border on hover */
+  --bg-toast: rgba(255, 255, 255, 0.98);
+  --shadow-toast: 0 12px 32px rgba(15, 23, 42, 0.1), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 20px 40px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.02);
+  --bg-google-btn: #ffffff;
+  --border-google-btn: #94a3b8;
+  --bg-google-btn-hover: #f8fafc;
+  --border-google-btn-hover: #475569;
+
+  --success-bg: rgba(34, 197, 94, 0.08);
+  --success-text: #166534;
+  --danger-bg: rgba(239, 68, 68, 0.08);
+  --danger-text: #991b1b;
+  --info-bg: rgba(56, 189, 248, 0.08);
+  --info-text: #075985;
+  --warning-bg: rgba(245, 158, 11, 0.08);
+  --warning-text: #854d0e;
+
+  --logo-gradient-start: #0f172a;
 }
 
 /* ── Reset & Base ───────────────────────────────────────── */
@@ -67,6 +131,21 @@ a {
 
 a:hover {
   color: var(--primary);
+}
+
+/* ── Bootstrap Utility Overrides ────────────────────────── */
+/* Ensure Bootstrap's text utilities respect our CSS variables */
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.text-secondary {
+  color: var(--text-secondary) !important;
+}
+
+/* Hover interaction for list row items */
+.dash-row-item:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
 }
 
 img {
@@ -447,8 +526,8 @@ img {
 .form-group select,
 .form-group textarea,
 .input-password-wrapper input:not([type="hidden"]) {
-  background: rgba(18, 18, 31, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  background: var(--bg-input) !important;
+  border: 1px solid var(--border-input) !important;
   color: var(--text-primary) !important;
   border-radius: 10px !important;
   padding: 11px 14px !important;
@@ -465,7 +544,7 @@ img {
 .form-group select:hover,
 .form-group textarea:hover,
 .input-password-wrapper input:not([type="hidden"]):hover {
-  border-color: rgba(255, 255, 255, 0.18) !important;
+  border-color: var(--border-input-hover) !important;
 }
 
 .form-control:focus,
@@ -474,10 +553,10 @@ img {
 .form-group select:focus,
 .form-group textarea:focus,
 .input-password-wrapper input:not([type="hidden"]):focus {
-  border-color: rgba(99, 102, 241, 0.6) !important;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+  border-color: var(--border-focus) !important;
+  box-shadow: 0 0 0 3px var(--primary-glow) !important;
   outline: none !important;
-  background: rgba(18, 18, 31, 0.95) !important;
+  background: var(--bg-surface) !important;
 }
 
 .form-control:disabled,
@@ -486,8 +565,8 @@ img {
 .form-group select:disabled,
 .form-group textarea:disabled,
 .input-password-wrapper input:not([type="hidden"]):disabled {
-  background: rgba(255, 255, 255, 0.02) !important;
-  border-color: rgba(255, 255, 255, 0.05) !important;
+  background: var(--bg-base) !important;
+  border-color: var(--border) !important;
   color: var(--text-muted) !important;
   cursor: not-allowed !important;
 }
@@ -666,9 +745,9 @@ img {
   gap: 10px;
   width: 100%;
   padding: 12px 24px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-google-btn);
   color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-google-btn);
   border-radius: 10px;
   font-size: 14px;
   font-weight: 500;
@@ -679,10 +758,10 @@ img {
 }
 
 .btn-google:hover {
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), 0 0 8px rgba(99, 102, 241, 0.15);
-  border-color: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  background: var(--bg-google-btn-hover);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 8px var(--primary-glow);
+  border-color: var(--border-google-btn-hover);
+  color: var(--text-primary);
   transform: translateY(-1px);
 }
 
@@ -728,8 +807,8 @@ img {
 }
 
 .form-check-input {
-  background-color: rgba(18, 18, 31, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  background-color: var(--bg-input) !important;
+  border: 1px solid var(--border-input) !important;
   border-radius: 4px !important;
   width: 16px !important;
   height: 16px !important;
@@ -784,27 +863,27 @@ img {
 }
 
 .alert-success {
-  background: rgba(34, 197, 94, 0.12) !important;
-  color: #86efac !important;
+  background: var(--success-bg) !important;
+  color: var(--success-text) !important;
   border-left: 3px solid var(--success) !important;
 }
 
 .alert-danger,
 .alert-error {
-  background: rgba(239, 68, 68, 0.12) !important;
-  color: #fca5a5 !important;
+  background: var(--danger-bg) !important;
+  color: var(--danger-text) !important;
   border-left: 3px solid var(--danger) !important;
 }
 
 .alert-info {
-  background: rgba(56, 189, 248, 0.12) !important;
-  color: #7dd3fc !important;
+  background: var(--info-bg) !important;
+  color: var(--info-text) !important;
   border-left: 3px solid var(--info) !important;
 }
 
 .alert-warning {
-  background: rgba(245, 158, 11, 0.12) !important;
-  color: #fde68a !important;
+  background: var(--warning-bg) !important;
+  color: var(--warning-text) !important;
   border-left: 3px solid var(--warning) !important;
 }
 
@@ -835,6 +914,7 @@ img {
   display: flex;
   flex-direction: column;
   z-index: 100;
+  backdrop-filter: blur(16px);
   transition: transform var(--transition);
 }
 
@@ -1054,7 +1134,7 @@ img {
 
 .page-content {
   flex: 1;
-  padding: 32px 28px;
+  padding: 32px 36px;
 }
 
 /* =========================================================
@@ -1075,6 +1155,7 @@ img {
   display: flex;
   align-items: flex-start;
   gap: 18px;
+  backdrop-filter: blur(16px);
   transition: all var(--transition);
   position: relative;
   overflow: hidden;
@@ -1161,6 +1242,7 @@ img {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 24px;
+  backdrop-filter: blur(16px);
   margin-bottom: 24px;
 }
 
@@ -1499,4 +1581,340 @@ img {
     transform: scale(1.15);
     opacity: 1;
   }
+}
+
+/* ── Toast Container & Premium Toast Notifications ──────── */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.custom-toast {
+  pointer-events: auto;
+  min-width: 320px;
+  max-width: 420px;
+  background: var(--bg-toast) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  padding: 16px 44px 16px 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  box-shadow: var(--shadow-toast) !important;
+  animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(120%) translateY(0);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) translateY(0);
+    opacity: 1;
+  }
+}
+
+.custom-toast.fade-out {
+  transform: translateX(120%) scale(0.9);
+  opacity: 0;
+}
+
+/* Color indicator bar on the left side of the toast */
+.custom-toast::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--info);
+}
+
+.custom-toast.toast-success::before {
+  background: var(--success) !important;
+}
+
+.custom-toast.toast-danger::before {
+  background: var(--danger) !important;
+}
+
+.custom-toast.toast-warning::before {
+  background: var(--warning) !important;
+}
+
+.custom-toast.toast-info::before {
+  background: var(--info) !important;
+}
+
+.toast-icon {
+  font-size: 20px !important;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast-success .toast-icon { color: var(--success) !important; }
+.toast-danger .toast-icon { color: var(--danger) !important; }
+.toast-warning .toast-icon { color: var(--warning) !important; }
+.toast-info .toast-icon { color: var(--info) !important; }
+
+.toast-content {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+  word-break: break-word;
+}
+
+.toast-close {
+  position: absolute !important;
+  top: 50% !important;
+  right: 14px !important;
+  transform: translateY(-50%) !important;
+  background: none !important;
+  border: none !important;
+  color: var(--text-muted) !important;
+  cursor: pointer !important;
+  padding: 4px !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: color var(--transition) !important;
+}
+
+.toast-close:hover {
+  color: var(--text-primary) !important;
+}
+
+/* ── Light Theme Custom Overrides ────────────────────────── */
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html[data-theme="light"] body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+html[data-theme="light"] .auth-brand {
+  background: linear-gradient(155deg, #f8fafc 0%, #e0e7ff 100%) !important;
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] .auth-brand::before {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%) !important;
+}
+
+html[data-theme="light"] .auth-brand::after {
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.08) 0%, transparent 70%) !important;
+}
+
+html[data-theme="light"] .brand-headline {
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="light"] .brand-headline span {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+html[data-theme="light"] .brand-features li .feat-icon {
+  background: rgba(99, 102, 241, 0.08) !important;
+  border: 1px solid rgba(99, 102, 241, 0.2) !important;
+  color: var(--primary) !important;
+}
+
+html[data-theme="light"] .brand-deco .deco-card {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05) !important;
+  color: var(--text-secondary) !important;
+}
+
+html[data-theme="light"] .brand-logo .logo-text,
+html[data-theme="light"] .auth-mobile-logo .logo-text {
+  background: linear-gradient(135deg, var(--text-primary), var(--primary)) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+html[data-theme="light"] .auth-card {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08), 0 0 30px rgba(99, 102, 241, 0.03) !important;
+  backdrop-filter: blur(24px) !important;
+}
+
+html[data-theme="light"] .auth-switch-link:hover {
+  color: var(--primary);
+}
+
+html[data-theme="light"] .forgot-link:hover {
+  color: var(--primary);
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-light);
+}
+
+html[data-theme="light"] .table-custom tr:hover td {
+  background: rgba(15, 23, 42, 0.02) !important;
+}
+
+html[data-theme="light"] .sidebar-user:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="light"] .topbar-avatar-btn:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="light"] .deco-card {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  color: var(--text-secondary);
+}
+
+/* Sidebar logo text visibility */
+html[data-theme="light"] .sidebar-logo-text {
+  background: linear-gradient(135deg, var(--text-primary), var(--primary-light)) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+/* Verified badge styling */
+html[data-theme="light"] .badge-green {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #065f46 !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+}
+
+html[data-theme="light"] .badge-custom.badge-green i {
+  color: #065f46 !important;
+}
+
+/* Or divider line visibility */
+html[data-theme="light"] .or-divider::before,
+html[data-theme="light"] .or-divider::after {
+  background: rgba(15, 23, 42, 0.15) !important;
+}
+
+/* Separator line visibility */
+html[data-theme="light"] .separator {
+  background: rgba(15, 23, 42, 0.12) !important;
+}
+
+/* Sidebar overrides in light theme */
+html[data-theme="light"] .sidebar {
+  background: #ffffff !important;
+}
+
+/* Sidebar links hover and active */
+html[data-theme="light"] .sidebar-link:hover {
+  background: rgba(99, 102, 241, 0.06) !important;
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="light"] .sidebar-link.active {
+  background: rgba(99, 102, 241, 0.12) !important;
+  color: var(--primary) !important;
+}
+
+html[data-theme="light"] .sidebar-link.active::before {
+  background: var(--primary) !important;
+}
+
+/* Welcome banner */
+html[data-theme="light"] .welcome-banner {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(129, 140, 248, 0.06)) !important;
+  border-color: rgba(99, 102, 241, 0.2) !important;
+}
+
+/* Stat card icons */
+html[data-theme="light"] .stat-icon.indigo {
+  background: rgba(99, 102, 241, 0.1) !important;
+  color: var(--primary) !important;
+}
+
+html[data-theme="light"] .stat-icon.green {
+  background: rgba(34, 197, 94, 0.1) !important;
+  color: #166534 !important;
+}
+
+html[data-theme="light"] .stat-icon.amber {
+  background: rgba(245, 158, 11, 0.1) !important;
+  color: #854d0e !important;
+}
+
+html[data-theme="light"] .stat-icon.blue {
+  background: rgba(56, 189, 248, 0.1) !important;
+  color: #075985 !important;
+}
+
+/* Form disabled control text visibility */
+html[data-theme="light"] .form-control:disabled,
+html[data-theme="light"] .form-select:disabled {
+  color: #475569 !important;
+  -webkit-text-fill-color: #475569 !important;
+  opacity: 1 !important;
+}
+
+/* Dropdown styling */
+html[data-theme="light"] .dropdown-menu {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08) !important;
+}
+
+html[data-theme="light"] .dropdown-item:hover {
+  background: rgba(99, 102, 241, 0.08) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Password strength bar track in light theme */
+html[data-theme="light"] .strength-bar-track {
+  background: rgba(15, 23, 42, 0.12) !important;
+}
+
+/* Smooth theme transitions */
+body,
+.sidebar,
+.topbar,
+.section-card,
+.stat-card,
+.form-control,
+.form-select,
+.auth-card,
+.custom-toast,
+.table-custom td,
+.welcome-banner,
+.sidebar-logo-icon,
+.sidebar-logo-text,
+.sidebar-link,
+.topbar-avatar-btn,
+.sidebar-user {
+  transition: background 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease !important;
 }

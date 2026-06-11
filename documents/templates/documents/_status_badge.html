@@ -1,0 +1,25 @@
+{% if doc.status == 'ready' %}
+  <span class="badge-status ready" id="status-badge-{{ doc.id }}">
+    <i class="bi bi-check-circle-fill"></i> Ready • {{ doc.page_count }} pages
+  </span>
+  {% if is_htmx %}
+  <div class="doc-title-cell" id="doc-title-cell-{{ doc.id }}" hx-swap-oob="true">
+    <i class="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>
+    <a href="{% url 'documents:detail' doc.id %}" class="text-decoration-none text-light-hover fw-medium" title="View Details & Summaries">
+      <span>{{ doc.title }}</span>
+    </a>
+  </div>
+  {% endif %}
+{% elif doc.status == 'failed' %}
+  <span class="badge-status failed" id="status-badge-{{ doc.id }}" title="{{ doc.error_message|default:'Unknown error' }}">
+    <i class="bi bi-exclamation-circle-fill"></i> Failed
+  </span>
+{% else %}
+  <span class="badge-status processing" 
+        id="status-badge-{{ doc.id }}"
+        hx-get="{% url 'documents:status' doc.id %}" 
+        hx-trigger="every 3s" 
+        hx-swap="outerHTML">
+    <span class="spinner-border spinner-border-sm spinner-xs me-1"></span> Processing...
+  </span>
+{% endif %}

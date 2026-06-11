@@ -1,0 +1,209 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block title %}Start New Chat — DocChat{% endblock %}
+{% block page_title %}Start New Chat{% endblock %}
+
+{% block extra_css %}
+<style>
+  .selection-container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    padding: 32px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .doc-checkbox-card {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: all var(--transition);
+    user-select: none;
+  }
+
+  .doc-checkbox-card:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+    background: var(--bg-card-hover);
+  }
+
+  /* Checked State */
+  .doc-checkbox-input:checked + .doc-checkbox-card {
+    border-color: var(--primary);
+    background: rgba(99, 102, 241, 0.04);
+    box-shadow: 0 0 16px rgba(99, 102, 241, 0.06);
+  }
+
+  .doc-checkbox-input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+  }
+
+  .custom-checkbox-indicator {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--text-muted);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all var(--transition);
+  }
+
+  .doc-checkbox-input:checked + .doc-checkbox-card .custom-checkbox-indicator {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+
+  .doc-checkbox-input:checked + .doc-checkbox-card .custom-checkbox-indicator::after {
+    content: '\F26E'; /* bootstrap-icons check */
+    font-family: 'bootstrap-icons';
+    color: #fff;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  .doc-card-details {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .doc-card-title {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+
+  .doc-card-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .docs-list-scroll {
+    max-height: 400px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-right: 4px;
+    margin-bottom: 12px;
+  }
+
+  /* Pagination */
+  .pagination-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-top: 14px;
+    margin-bottom: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .pagination-info { font-size: 12.5px; color: var(--text-muted); }
+  .pagination-sep { margin: 0 6px; opacity: 0.4; }
+  .pagination-controls { display: flex; align-items: center; gap: 6px; }
+  .page-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--bg-card);
+    color: var(--text-secondary); font-size: 12.5px;
+    text-decoration: none; transition: all var(--transition);
+  }
+  .page-btn:hover:not(.disabled) { background: rgba(99,102,241,0.08); border-color: var(--primary); color: var(--primary-light); }
+  .page-btn.disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+  .page-pill {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 28px; height: 28px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--bg-card);
+    color: var(--text-secondary); font-size: 12.5px; text-decoration: none;
+    transition: all var(--transition);
+  }
+  .page-pill:hover { background: rgba(99,102,241,0.08); border-color: var(--primary); color: var(--primary-light); }
+  .page-pill.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; pointer-events: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0 py-3">
+  
+  <div class="selection-container">
+    <div class="text-center mb-4">
+      <div style="font-size: 48px; margin-bottom: 12px;">💬</div>
+      <h2 class="fw-bold text-primary mb-2">Configure Your AI Assistant</h2>
+      <p class="text-secondary mb-0">Select one or more uploaded PDFs to chat with. The AI will ground its responses strictly in these documents.</p>
+    </div>
+
+    <form method="POST" action="{% url 'chat:new' %}">
+      {% csrf_token %}
+
+      <div class="mb-4">
+        <label class="form-label mb-3">Select Documents (Max 5 recommended)</label>
+        
+        {% if documents %}
+          <div class="docs-list-scroll">
+            {% for doc in documents %}
+              <label class="w-100 mb-0">
+                <input type="checkbox" name="documents" value="{{ doc.id }}" class="doc-checkbox-input"
+                       {% if preselected_id == doc.id %}checked{% endif %}>
+                <div class="doc-checkbox-card">
+                  <div class="custom-checkbox-indicator"></div>
+                  <i class="bi bi-file-earmark-pdf-fill text-danger fs-3"></i>
+                  <div class="doc-card-details">
+                    <div class="doc-card-title">{{ doc.title }}</div>
+                    <div class="doc-card-meta">
+                      <span><i class="bi bi-file-earmark-text me-1"></i>{{ doc.page_count }} pages</span>
+                      <span><i class="bi bi-hdd me-1"></i>{{ doc.file_size|filesizeformat }}</span>
+                      <span><i class="bi bi-clock me-1"></i>Uploaded {{ doc.uploaded_at|date:"M d" }}</span>
+                    </div>
+                  </div>
+                </div>
+              </label>
+            {% endfor %}
+          </div>
+
+          {# Pagination controls for doc picker #}
+          {% include "_pagination.html" with page_obj=page_obj %}
+        {% else %}
+          <div class="text-center py-5 border border-dashed rounded-3 mb-4" style="border-color:var(--border) !important; background: rgba(255,255,255,0.01);">
+            <i class="bi bi-file-earmark-pdf text-muted mb-3 d-block" style="font-size: 40px; opacity: 0.4;"></i>
+            <h5 class="fw-bold mb-1">No Ready Documents Found</h5>
+            <p class="text-muted mb-3" style="font-size: 14px;">You need to upload and process at least one PDF before starting a chat.</p>
+            <a href="{% url 'documents:list' %}" class="btn btn-outline-custom">
+              <i class="bi bi-upload me-1"></i> Upload Documents
+            </a>
+          </div>
+        {% endif %}
+      </div>
+
+      {% if documents %}
+        <div class="d-grid">
+          <button type="submit" class="btn btn-primary-custom">
+            <i class="bi bi-chat-left-text-fill"></i> Start Conversation
+          </button>
+        </div>
+      {% endif %}
+    </form>
+  </div>
+
+</div>
+{% endblock %}

@@ -26,10 +26,22 @@
       mobileMenu.classList.toggle('open');
       const isOpen = mobileMenu.classList.contains('open');
       hamburger.setAttribute('aria-expanded', isOpen);
+      if (nav) {
+        if (isOpen) {
+          nav.classList.add('lp-nav--menu-open');
+        } else {
+          nav.classList.remove('lp-nav--menu-open');
+        }
+      }
     });
     // Close menu on link click
     mobileMenu.querySelectorAll('a').forEach(link => {
-      link.addEventListener('click', () => mobileMenu.classList.remove('open'));
+      link.addEventListener('click', () => {
+        mobileMenu.classList.remove('open');
+        if (nav) {
+          nav.classList.remove('lp-nav--menu-open');
+        }
+      });
     });
   }
 
@@ -86,6 +98,59 @@
         });
       }, 300);
     }, 2000);
+  }
+
+  /* ── 6. Theme Toggle (Desktop & Mobile) ──────────────── */
+  const themeToggle = document.getElementById('theme-toggle');
+  const themeIcon = document.getElementById('theme-icon');
+  const mobileThemeToggle = document.getElementById('mobile-theme-toggle');
+  const mobileThemeIcon = document.getElementById('mobile-theme-icon');
+
+  function updateThemeIcons(theme) {
+    if (theme === 'light') {
+      if (themeIcon) {
+        themeIcon.classList.remove('bi-moon');
+        themeIcon.classList.add('bi-sun');
+      }
+      if (mobileThemeIcon) {
+        mobileThemeIcon.classList.remove('bi-moon');
+        mobileThemeIcon.classList.add('bi-sun');
+      }
+    } else {
+      if (themeIcon) {
+        themeIcon.classList.remove('bi-sun');
+        themeIcon.classList.add('bi-moon');
+      }
+      if (mobileThemeIcon) {
+        mobileThemeIcon.classList.remove('bi-sun');
+        mobileThemeIcon.classList.add('bi-moon');
+      }
+    }
+  }
+
+  function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcons(newTheme);
+  }
+
+  const initialTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  updateThemeIcons(initialTheme);
+
+  if (themeToggle) {
+    themeToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleTheme();
+    });
+  }
+
+  if (mobileThemeToggle) {
+    mobileThemeToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleTheme();
+    });
   }
 
 })();

@@ -15,7 +15,7 @@
       Here's an overview of your DocChat activity. Ready to chat with your documents?
     </p>
   </div>
-  <a href="#" id="btn-upload-doc" class="btn-primary-custom" style="width:auto;white-space:nowrap;">
+  <a href="{% url 'documents:list' %}" id="btn-upload-doc" class="btn-primary-custom" style="width:auto;white-space:nowrap;">
     <i class="bi bi-plus-lg"></i> Upload Document
   </a>
 </div>
@@ -28,8 +28,8 @@
       <i class="bi bi-file-earmark-pdf-fill"></i>
     </div>
     <div>
-      <div class="stat-value">0</div>
-      <div class="stat-label">Documents Uploaded</div>
+      <div class="stat-value">{{ doc_count }}</div>
+      <div class="stat-label">Uploaded PDFs</div>
     </div>
   </div>
 
@@ -38,28 +38,28 @@
       <i class="bi bi-chat-dots-fill"></i>
     </div>
     <div>
-      <div class="stat-value">0</div>
+      <div class="stat-value">{{ convo_count }}</div>
       <div class="stat-label">Chat Sessions</div>
     </div>
   </div>
 
   <div class="stat-card amber">
     <div class="stat-icon amber">
-      <i class="bi bi-lightning-charge-fill"></i>
+      <i class="bi bi-hash"></i>
     </div>
     <div>
-      <div class="stat-value">0</div>
-      <div class="stat-label">Questions Asked</div>
+      <div class="stat-value">{{ total_pages }}</div>
+      <div class="stat-label">Pages Indexed</div>
     </div>
   </div>
 
   <div class="stat-card blue">
     <div class="stat-icon blue">
-      <i class="bi bi-search"></i>
+      <i class="bi bi-hdd-fill"></i>
     </div>
     <div>
-      <div class="stat-value">0</div>
-      <div class="stat-label">Searches Made</div>
+      <div class="stat-value">{{ total_size }}</div>
+      <div class="stat-label">Storage Used</div>
     </div>
   </div>
 
@@ -68,66 +68,80 @@
 <!-- Content Row -->
 <div class="row g-4">
 
-  <!-- Recent Activity -->
+  <!-- Recent Activity / Documents -->
   <div class="col-lg-7">
     <div class="section-card h-100">
       <div class="section-card-header">
-        <h3 class="section-title"><i class="bi bi-clock-history me-2 text-secondary"></i>Recent Activity</h3>
-        <span class="badge-custom badge-indigo">Live</span>
+        <h3 class="section-title"><i class="bi bi-clock-history me-2 text-secondary"></i>Recent Uploads</h3>
+        <a href="{% url 'documents:list' %}" class="badge-custom badge-indigo text-decoration-none">View All</a>
       </div>
 
-      <div class="activity-item">
-        <div class="activity-dot indigo"></div>
-        <div>
-          <div class="activity-text">Account created successfully 🎉</div>
-          <div class="activity-time">Just now</div>
-        </div>
-      </div>
-
-      <div style="text-align:center;padding:32px 0;color:var(--text-muted);">
-        <i class="bi bi-inbox" style="font-size:40px;opacity:0.4;display:block;margin-bottom:12px;"></i>
-        <p style="font-size:14px;">No activity yet. Upload your first document to get started!</p>
-        <a href="#" class="btn-outline-custom mt-2" style="width:auto;display:inline-flex;">
-          <i class="bi bi-plus-lg"></i> Upload Document
-        </a>
+      <div class="d-flex flex-column gap-3 mt-3">
+        {% for doc in recent_docs %}
+          <div class="d-flex align-items-center justify-content-between rounded" style="padding:12px 16px; background:rgba(255,255,255,0.02); border:1px solid var(--border); transition: background 0.2s;">
+            <div class="d-flex align-items-center gap-3 min-w-0">
+              <i class="bi bi-file-earmark-pdf-fill fs-5" style="color:#f87171; flex-shrink:0;"></i>
+              <div class="min-w-0">
+                {% if doc.status == 'ready' %}
+                  <a href="{% url 'documents:detail' doc.id %}" class="fw-semibold text-decoration-none d-block text-truncate" style="font-size:14px; color:var(--primary-light);">
+                    {{ doc.title }}
+                  </a>
+                {% else %}
+                  <span class="fw-semibold d-block text-truncate" style="font-size:14px; color:var(--text-secondary);">
+                    {{ doc.title }}
+                  </span>
+                {% endif %}
+                <span style="font-size:11.5px; color:var(--text-muted);">{{ doc.file_size|filesizeformat }} • {{ doc.uploaded_at|date:"M d, Y" }}</span>
+              </div>
+            </div>
+            <div style="flex-shrink:0; margin-left:12px;">
+              {% if doc.status == 'ready' %}
+                <span style="font-size:11px; padding:3px 10px; border-radius:20px; background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(34,197,94,0.3); font-weight:500;">Ready</span>
+              {% elif doc.status == 'failed' %}
+                <span style="font-size:11px; padding:3px 10px; border-radius:20px; background:rgba(239,68,68,0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.3); font-weight:500;">Failed</span>
+              {% else %}
+                <span style="font-size:11px; padding:3px 10px; border-radius:20px; background:rgba(245,158,11,0.15); color:#fde68a; border:1px solid rgba(245,158,11,0.3); font-weight:500;">Processing</span>
+              {% endif %}
+            </div>
+          </div>
+        {% empty %}
+          <div class="text-center py-5" style="color:var(--text-muted);">
+            <i class="bi bi-inbox mb-2" style="font-size:36px;opacity:0.3;display:block;"></i>
+            <p class="mb-0" style="font-size:13.5px;">No documents uploaded yet.</p>
+          </div>
+        {% endfor %}
       </div>
     </div>
   </div>
 
-  <!-- Quick Actions + Profile -->
+  <!-- Quick Actions + Recent Chats -->
   <div class="col-lg-5">
 
-    <!-- Profile card -->
+    <!-- Recent Conversations -->
     <div class="section-card mb-4">
       <div class="section-card-header">
-        <h3 class="section-title"><i class="bi bi-person-circle me-2 text-secondary"></i>Your Profile</h3>
-        <a href="{% url 'profile' %}" class="badge-custom badge-indigo text-decoration-none">Edit</a>
+        <h3 class="section-title"><i class="bi bi-chat-left-text me-2 text-secondary"></i>Recent Chats</h3>
+        <a href="{% url 'chat:new' %}" class="badge-custom badge-indigo text-decoration-none">New Chat</a>
       </div>
 
-      <div class="d-flex align-items-center gap-3">
-        {% if profile.avatar %}
-          <img src="{{ profile.avatar.url }}" alt="Avatar" class="avatar-lg">
-        {% else %}
-          <div class="avatar-initials-lg">{{ profile.get_initials }}</div>
-        {% endif %}
-
-        <div>
-          <div style="font-size:17px;font-weight:600;color:var(--text-primary);">
-            {{ request.user.get_full_name|default:request.user.username }}
+      <div class="d-flex flex-column gap-2 mt-3">
+        {% for chat in recent_chats %}
+          <a href="{% url 'chat:detail' chat.id %}" class="d-flex align-items-center justify-content-between text-decoration-none rounded" style="padding:12px 16px; background:rgba(255,255,255,0.02); border:1px solid var(--border); transition: background 0.2s;">
+            <div class="min-w-0">
+              <div class="fw-semibold text-truncate" style="font-size:13.5px; color:var(--text-primary);">
+                {{ chat.title|default:"New Conversation" }}
+              </div>
+              <span style="font-size:11.5px; color:var(--text-muted);">Updated {{ chat.updated_at|date:"M d, g:i A" }}</span>
+            </div>
+            <i class="bi bi-chevron-right" style="font-size:11px; color:var(--text-muted); flex-shrink:0; margin-left:8px;"></i>
+          </a>
+        {% empty %}
+          <div class="text-center py-4" style="color:var(--text-muted);">
+            <i class="bi bi-chat-left mb-2" style="font-size:32px;opacity:0.3;display:block;"></i>
+            <p class="mb-0" style="font-size:13px;">No conversations yet.</p>
           </div>
-          <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">
-            @{{ request.user.username }}
-          </div>
-          <span class="badge-custom badge-green">
-            <i class="bi bi-patch-check-fill"></i> Verified
-          </span>
-        </div>
+        {% endfor %}
       </div>
-
-      {% if profile.bio %}
-        <div class="separator"></div>
-        <p style="font-size:13px;color:var(--text-secondary);">{{ profile.bio }}</p>
-      {% endif %}
     </div>
 
     <!-- Quick actions -->
@@ -135,13 +149,13 @@
       <h3 class="section-title mb-3"><i class="bi bi-grid me-2 text-secondary"></i>Quick Actions</h3>
 
       <div class="d-grid gap-2">
-        <a href="#" id="qa-upload" class="btn-primary-custom" style="font-size:13px;padding:10px;">
+        <a href="{% url 'documents:list' %}" id="qa-upload" class="btn-primary-custom" style="font-size:13.5px;padding:11px;">
           <i class="bi bi-cloud-upload-fill"></i> Upload PDF
         </a>
-        <a href="#" id="qa-chat" class="btn-outline-custom" style="font-size:13px;padding:10px;">
-          <i class="bi bi-chat-dots"></i> Start Chatting
+        <a href="{% url 'chat:new' %}" id="qa-chat" class="btn-outline-custom" style="font-size:13.5px;padding:11px;">
+          <i class="bi bi-chat-dots-fill"></i> Start Chatting
         </a>
-        <a href="#" id="qa-search" class="btn-outline-custom" style="font-size:13px;padding:10px;">
+        <a href="{% url 'search:search' %}" id="qa-search" class="btn-outline-custom" style="font-size:13.5px;padding:11px;">
           <i class="bi bi-search"></i> Search Documents
         </a>
       </div>

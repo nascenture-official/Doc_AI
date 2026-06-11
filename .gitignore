@@ -26,3 +26,6 @@ LICENSE
 
 # claude folder 
 .claude/
+
+# Vector_store
+vector_store/

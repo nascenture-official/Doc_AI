@@ -1,0 +1,802 @@
+{% extends "base_app.html" %}
+{% load static %}
+{% load markdown_extras %}
+
+{% block title %}{{ conversation.title|default:"Chat" }} — DocChat{% endblock %}
+{% block page_title %}Chat Interface{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Split layout */
+  .chat-wrapper-layout {
+    display: flex;
+    height: calc(100vh - var(--topbar-h) - 40px);
+    margin: -20px;
+    background: var(--bg-base);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  /* Chat list sidebar */
+  .chat-sidebar {
+    width: 280px;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .chat-sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chat-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .chat-list-item-wrapper {
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition);
+    position: relative;
+  }
+
+  .chat-list-item-wrapper:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .chat-list-item-wrapper.active {
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+  }
+
+  .chat-list-item {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    padding: 10px 12px;
+    color: var(--text-secondary);
+    transition: color var(--transition);
+    cursor: pointer;
+    text-decoration: none;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .chat-list-item:hover,
+  .chat-list-item-wrapper.active .chat-list-item {
+    color: var(--text-primary);
+  }
+
+  .chat-list-item-wrapper.active .chat-list-item {
+    color: var(--primary-light);
+  }
+
+  .chat-item-title {
+    font-size: 13.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  .chat-item-delete {
+    opacity: 0;
+    color: var(--text-muted);
+    transition: opacity var(--transition), color var(--transition);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 6px 10px;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+  }
+
+  .chat-list-item-wrapper:hover .chat-item-delete,
+  .chat-list-item-wrapper.active .chat-item-delete {
+    opacity: 1;
+  }
+
+  .chat-item-delete:hover {
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.08);
+  }
+
+  /* Main chat panel */
+  .chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-base);
+    min-width: 0;
+  }
+
+  /* Chat header */
+  .chat-main-header {
+    padding: 16px 24px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .linked-docs-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .linked-doc-tag {
+    font-size: 11.5px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 12px;
+    color: var(--text-secondary);
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Scrollable messages container */
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Bubble alignment */
+  .message-row {
+    display: flex;
+    width: 100%;
+  }
+
+  .message-row.user {
+    justify-content: flex-end;
+  }
+
+  .message-row.assistant {
+    justify-content: flex-start;
+  }
+
+  /* Bubble styles */
+  .chat-bubble {
+    max-width: 75%;
+    padding: 14px 18px;
+    border-radius: 16px;
+    font-size: 14.5px;
+    line-height: 1.65;
+    word-wrap: break-word;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .message-row.user .chat-bubble {
+    background: var(--primary);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+
+  .message-row.assistant .chat-bubble {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-bottom-left-radius: 4px;
+  }
+
+  /* Fade-in animation for new assistant messages */
+  .assistant-bubble-animate {
+    animation: bubbleFadeIn 0.35s ease forwards;
+  }
+
+  @keyframes bubbleFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* AI thinking / loading bubble */
+  .ai-thinking-bubble {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    min-width: 100px;
+  }
+
+  .ai-thinking-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* Typing dots inside thinking bubble */
+  .typing-indicator-dots {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    background: var(--primary);
+    border-radius: 50%;
+    animation: dotPulse 1.4s infinite ease-in-out;
+    opacity: 0.7;
+  }
+
+  .dot:nth-child(1) { animation-delay: 0s; }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dotPulse {
+    0%, 60%, 100% { transform: scale(0.7); opacity: 0.4; }
+    30% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Sources details block */
+  .message-sources {
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+  }
+
+  .sources-toggle {
+    font-size: 12px;
+    color: var(--primary-light);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    user-select: none;
+    font-weight: 500;
+  }
+
+  .sources-panel {
+    display: none;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .source-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+  }
+
+  .source-item-header {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+
+  .source-item-text {
+    font-style: italic;
+    opacity: 0.8;
+  }
+
+  /* Footer input area */
+  .chat-input-area {
+    padding: 16px 24px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border);
+  }
+
+  .input-form-wrapper {
+    display: flex;
+    gap: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+
+  .input-form-wrapper:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+  }
+
+  .chat-textarea {
+    flex: 1;
+    background: none !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color: var(--text-primary) !important;
+    padding: 8px 4px !important;
+    font-size: 14.5px !important;
+    resize: none;
+    height: 40px;
+    max-height: 120px;
+    line-height: 1.5;
+    font-family: inherit;
+  }
+
+  .chat-send-btn {
+    align-self: flex-end;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    background: var(--primary);
+    border: none;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-bottom: 2px;
+  }
+
+  .chat-send-btn:hover:not(:disabled) {
+    background: var(--primary-light);
+    transform: scale(1.05);
+  }
+
+  .chat-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Spinner inside send button during HTMX request */
+  .chat-send-btn .spinner-border {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .chat-sidebar {
+      position: absolute;
+      left: -280px;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+      transition: left var(--transition);
+    }
+    .chat-sidebar.open {
+      left: 0;
+    }
+  }
+
+  /* Load-older-messages sentinel */
+  .load-older-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 0 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  /* Sidebar infinite-scroll spinner */
+  .sidebar-loading-more {
+    text-align: center;
+    padding: 10px 0;
+    color: var(--text-muted);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-wrapper-layout">
+
+  <!-- Sidebar Conversation List -->
+  <div class="chat-sidebar" id="chat-sidebar">
+    <div class="chat-sidebar-header">
+      <a href="{% url 'chat:new' %}" class="btn btn-primary-custom py-2" style="font-size: 13.5px;">
+        <i class="bi bi-plus-lg"></i> New Conversation
+      </a>
+    </div>
+
+    <div class="chat-list" id="chat-list">
+      {% for convo in conversations %}
+        <div class="chat-list-item-wrapper {% if active_convo_id == convo.id %}active{% endif %}"
+             id="convo-item-{{ convo.id }}">
+          <a href="{% url 'chat:detail' convo.id %}" class="chat-list-item">
+            <i class="bi bi-chat-left-text" style="flex-shrink:0;font-size:13px;"></i>
+            <span class="chat-item-title">{{ convo.title|default:"New Conversation" }}</span>
+          </a>
+          <!-- Delete button triggers modal instead of hx-confirm -->
+          <button class="chat-item-delete"
+                  title="Delete conversation"
+                  data-bs-toggle="modal"
+                  data-bs-target="#deleteChatModal"
+                  data-convo-id="{{ convo.id }}"
+                  data-convo-title="{{ convo.title|default:'New Conversation'|escapejs }}">
+            <i class="bi bi-trash" style="font-size: 13px;"></i>
+          </button>
+        </div>
+      {% empty %}
+        <div class="text-center py-5 text-muted" style="font-size: 13px;">
+          No conversations yet.
+        </div>
+      {% endfor %}
+
+      {# Sidebar infinite scroll — loads next 15 conversations when sentinel scrolls into view #}
+      {% if has_more_conversations %}
+      <div id="sidebar-load-more-{{ conversations|length }}"
+           hx-get="{% url 'chat:sidebar_conversations' %}?offset={{ conversations|length }}&active={{ active_convo_id }}"
+           hx-trigger="intersect once"
+           hx-swap="outerHTML"
+           hx-target="#sidebar-load-more-{{ conversations|length }}">
+        <div class="sidebar-loading-more">
+          <span class="spinner-border" style="width:14px;height:14px;border-width:2px;color:var(--primary);" role="status" aria-hidden="true"></span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Delete Chat Confirmation Modal -->
+  <div class="modal fade" id="deleteChatModal" tabindex="-1" aria-labelledby="deleteChatModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="background:var(--bg-toast); border-color:var(--border);">
+        <div class="modal-header border-bottom-0 pb-0">
+          <h5 class="modal-title fw-bold" id="deleteChatModalLabel" style="color:var(--text-primary);">
+            <i class="bi bi-exclamation-triangle-fill me-2" style="color:var(--danger);"></i>Delete Conversation
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="deleteChatModalClose"></button>
+        </div>
+        <div class="modal-body" style="color:var(--text-secondary); padding-top:12px;">
+          Are you sure you want to delete "<span id="deleteModalConvoTitle" class="fw-bold" style="color:var(--text-primary);"></span>"?
+          <div class="mt-2" style="font-size:12.5px; color:var(--text-muted);">
+            <i class="bi bi-info-circle me-1"></i>This action is permanent and cannot be undone.
+          </div>
+        </div>
+        <div class="modal-footer border-top-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="deleteChatCancelBtn">Cancel</button>
+          <!-- The actual HTMX delete button -->
+          <button type="button" class="btn btn-danger" id="confirmDeleteChatBtn"
+                  hx-post=""
+                  hx-vals='{"active_id": "{{ active_convo_id }}"}'
+                  hx-target=""
+                  hx-swap="outerHTML swap:300ms">
+            <!-- Normal state -->
+            <span id="deleteBtnText">
+              <i class="bi bi-trash me-1"></i>Delete
+            </span>
+            <!-- Loading state (hidden by default) -->
+            <span id="deleteBtnLoader" style="display:none; align-items:center; gap:8px;">
+              <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"
+                    style="width:14px; height:14px; border-width:2px;"></span>
+              Deleting…
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Chat Workspace -->
+  <div class="chat-main">
+    <div class="chat-main-header">
+      <div>
+        <h4 class="fw-bold mb-1" style="font-size:15px;color:var(--text-primary);">Active Session</h4>
+        <div class="linked-docs-list">
+          <span style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+            <i class="bi bi-link-45deg"></i> Grounded PDFs:
+          </span>
+          {% for doc in conversation.documents.all %}
+            <span class="linked-doc-tag" title="{{ doc.title }}">
+              <i class="bi bi-file-earmark-pdf text-danger me-1"></i>{{ doc.title }}
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+      <!-- Mobile toggle -->
+      <button class="btn btn-outline-custom p-2 d-md-none" id="mobile-chat-sidebar-toggle">
+        <i class="bi bi-chat-left-dots"></i>
+      </button>
+    </div>
+
+    <!-- Scrollable Messages Container -->
+    <div class="chat-messages" id="chat-messages-container">
+
+      {# Scroll-UP sentinel — loads older messages when user scrolls to the top #}
+      {% if has_older %}
+      <div id="load-older-sentinel"
+           hx-get="{% url 'chat:message_history' conversation.id %}?before={{ oldest_id }}"
+           hx-trigger="intersect once"
+           hx-swap="outerHTML"
+           hx-target="#load-older-sentinel">
+        <div class="load-older-indicator">
+          <span class="spinner-border" style="width:14px;height:14px;border-width:2px;color:var(--primary);" role="status" aria-hidden="true"></span>
+          <span>Loading older messages…</span>
+        </div>
+      </div>
+      {% endif %}
+
+      {% for msg in chat_messages %}
+        <div class="message-row {% if msg.role == 'user' %}user{% else %}assistant{% endif %}">
+          <div class="chat-bubble">
+            <div class="message-text">
+              {% if msg.role == 'user' %}
+                {{ msg.content|linebreaksbr }}
+              {% else %}
+                {{ msg.content|markdown_to_html }}
+              {% endif %}
+            </div>
+
+            {% if msg.role == 'assistant' and msg.sources %}
+              <div class="message-sources">
+                <span class="sources-toggle" onclick="toggleSources(this)">
+                  <i class="bi bi-journal-text"></i>
+                  Show Citations ({{ msg.sources|length }})
+                  <i class="bi bi-chevron-down ms-1" style="font-size:10px;"></i>
+                </span>
+                <div class="sources-panel">
+                  {% for src in msg.sources %}
+                    <div class="source-item">
+                      <div class="source-item-header">
+                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                        {{ src.source }} (Page {{ src.page }})
+                      </div>
+                      <div class="source-item-text">"{{ src.excerpt }}"</div>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% empty %}
+        <div class="text-center py-5 text-muted my-auto" id="chat-empty-state">
+          <i class="bi bi-chat-left-dots" style="font-size:48px;opacity:0.2;display:block;margin-bottom:16px;"></i>
+          <h5 class="fw-bold mb-1" style="color:var(--text-secondary);">Ask a Question</h5>
+          <p style="font-size: 13.5px;max-width:320px;margin:0 auto;opacity:0.8;">
+            Submit a query about the selected PDF documents. The AI will retrieve relevant passages and answer with references.
+          </p>
+        </div>
+      {% endfor %}
+    </div>
+
+  <!-- Input Footer Area -->
+    <div class="chat-input-area">
+      <form id="chat-form"
+            hx-post="{% url 'chat:send' conversation.id %}"
+            hx-target="#chat-messages-container"
+            hx-swap="beforeend">
+        {% csrf_token %}
+        <div class="input-form-wrapper">
+          <textarea name="content"
+                    id="chat-textarea"
+                    class="chat-textarea"
+                    placeholder="Ask a question about your PDFs… (Enter to send, Shift+Enter for new line)"
+                    rows="1"
+                    required></textarea>
+          <button type="submit" class="chat-send-btn" id="chat-send-btn">
+            <span id="send-icon"><i class="bi bi-arrow-up" style="font-size: 18px; font-weight: bold;"></i></span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Toggle citations panel
+  function toggleSources(el) {
+    var panel = el.nextElementSibling;
+    var isOpen = panel.style.display === 'flex';
+    panel.style.display = isOpen ? 'none' : 'flex';
+    var chevron = el.querySelector('.bi-chevron-down, .bi-chevron-up');
+    if (chevron) {
+      chevron.className = chevron.className.replace(
+        isOpen ? 'bi-chevron-up' : 'bi-chevron-down',
+        isOpen ? 'bi-chevron-down' : 'bi-chevron-up'
+      );
+    }
+  }
+
+  (function () {
+    var container = document.getElementById('chat-messages-container');
+    var textarea  = document.getElementById('chat-textarea');
+    var form      = document.getElementById('chat-form');
+    var sendBtn   = document.getElementById('chat-send-btn');
+    var sendIcon  = document.getElementById('send-icon');
+
+    // Scroll to bottom helper
+    function scrollToBottom() {
+      if (container) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      }
+    }
+
+    // Scroll on page load
+    scrollToBottom();
+
+    // ── Preserve scroll position when older messages are prepended ────────────
+    // Before HTMX swaps in older messages, record the current scrollHeight.
+    // After the swap settles, offset scrollTop by the height difference so the
+    // user's reading position stays exactly where it was.
+    var _scrollHeightBefore = null;
+    document.body.addEventListener('htmx:beforeSwap', function (e) {
+      var target = e.detail.target;
+      if (target && target.id && target.id.startsWith('load-older-sentinel')) {
+        _scrollHeightBefore = container.scrollHeight;
+      }
+    });
+    document.body.addEventListener('htmx:afterSettle', function () {
+      if (_scrollHeightBefore !== null) {
+        container.scrollTop = container.scrollHeight - _scrollHeightBefore;
+        _scrollHeightBefore = null;
+      }
+    });
+
+    // Auto-grow textarea height
+    textarea.addEventListener('input', function () {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    // Enter key submits via HTMX
+    textarea.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (textarea.value.trim() && !sendBtn.classList.contains('is-generating')) {
+          htmx.trigger(form, 'submit');
+        }
+      }
+    });
+
+    // Abort generation if stop button is clicked
+    sendBtn.addEventListener('click', function(e) {
+      if (sendBtn.classList.contains('is-generating')) {
+        e.preventDefault();
+        // Find the pending AI placeholder and abort its request
+        var placeholder = document.querySelector('[id^="ai-placeholder-"]');
+        if (placeholder) {
+          // Send abort signal to server so it doesn't save to DB
+          var userMsgId = placeholder.id.replace('ai-placeholder-', '');
+          var convoId = "{{ conversation.id }}";
+          var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+          fetch('/chat/' + convoId + '/abort/' + userMsgId + '/', {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrf}
+          });
+
+          htmx.abort(placeholder);
+          placeholder.remove(); // remove it from UI
+        }
+        resetSendButton();
+      }
+    });
+
+    function resetSendButton() {
+      sendBtn.classList.remove('is-generating');
+      sendIcon.innerHTML = '<i class="bi bi-arrow-up" style="font-size: 18px; font-weight: bold;"></i>';
+      sendBtn.style.backgroundColor = 'var(--primary)';
+    }
+
+    // clearInput event fired from SendMessageView HX-Trigger header (Phase 1 complete)
+    document.addEventListener('clearInput', function () {
+      textarea.value = '';
+      textarea.style.height = '40px';
+      textarea.focus();
+      var emptyState = document.getElementById('chat-empty-state');
+      if (emptyState) emptyState.style.display = 'none';
+      scrollToBottom();
+      
+      // Transform button to "Stop"
+      sendBtn.classList.add('is-generating');
+      sendIcon.innerHTML = '<i class="bi bi-square-fill" style="font-size: 14px;"></i>';
+      sendBtn.style.backgroundColor = 'var(--text-muted)';
+    });
+
+    // Scroll down after any HTMX content is swapped into the messages container
+    container.addEventListener('htmx:afterSwap', function () {
+      scrollToBottom();
+    });
+
+    // Mobile sidebar toggle
+    var mobileToggle = document.getElementById('mobile-chat-sidebar-toggle');
+    if (mobileToggle) {
+      mobileToggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        document.getElementById('chat-sidebar').classList.toggle('open');
+      });
+    }
+
+    // Modal Delete logic
+    var deleteChatModal = document.getElementById('deleteChatModal');
+    if (deleteChatModal) {
+      deleteChatModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var convoId = button.getAttribute('data-convo-id');
+        var convoTitle = button.getAttribute('data-convo-title');
+
+        document.getElementById('deleteModalConvoTitle').textContent = convoTitle;
+
+        var confirmBtn = document.getElementById('confirmDeleteChatBtn');
+        confirmBtn.setAttribute('hx-post', '/chat/' + convoId + '/delete/');
+        confirmBtn.setAttribute('hx-target', '#convo-item-' + convoId);
+        htmx.process(confirmBtn);
+      });
+
+      // Reset loader state whenever modal is fully hidden
+      deleteChatModal.addEventListener('hidden.bs.modal', function () {
+        _resetDeleteBtn();
+      });
+
+      var confirmBtn = document.getElementById('confirmDeleteChatBtn');
+      if (confirmBtn) {
+        // Show spinner when the HTMX request starts
+        confirmBtn.addEventListener('htmx:beforeRequest', function () {
+          _showDeleteLoader();
+        });
+
+        // On success: close the modal (outerHTML swap will remove the list item)
+        confirmBtn.addEventListener('htmx:afterRequest', function (evt) {
+          if (evt.detail.successful) {
+            var modalInstance = bootstrap.Modal.getInstance(deleteChatModal);
+            if (modalInstance) modalInstance.hide();
+          } else {
+            // On error: restore button so user can retry
+            _resetDeleteBtn();
+          }
+        });
+      }
+    }
+
+    function _showDeleteLoader() {
+      var confirmBtn = document.getElementById('confirmDeleteChatBtn');
+      var textEl   = document.getElementById('deleteBtnText');
+      var loaderEl = document.getElementById('deleteBtnLoader');
+      if (!confirmBtn) return;
+      confirmBtn.disabled = true;
+      document.getElementById('deleteChatCancelBtn').disabled = true;
+      document.getElementById('deleteChatModalClose').disabled = true;
+      textEl.style.display   = 'none';
+      loaderEl.style.display = 'inline-flex';
+    }
+
+    function _resetDeleteBtn() {
+      var confirmBtn = document.getElementById('confirmDeleteChatBtn');
+      var textEl   = document.getElementById('deleteBtnText');
+      var loaderEl = document.getElementById('deleteBtnLoader');
+      if (!confirmBtn) return;
+      confirmBtn.disabled = false;
+      document.getElementById('deleteChatCancelBtn').disabled = false;
+      document.getElementById('deleteChatModalClose').disabled = false;
+      textEl.style.display   = '';
+      loaderEl.style.display = 'none';
+    }
+    
+    // Expose reset globally so _assistant_message.html can call it
+    window.resetChatSendButton = resetSendButton;
+  })();
+</script>
+{% endblock %}

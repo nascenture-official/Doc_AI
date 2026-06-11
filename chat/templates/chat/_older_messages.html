@@ -1,0 +1,53 @@
+{% load markdown_extras %}
+{# Rendered by MessageHistoryView — prepended into #chat-messages-container via HTMX #}
+
+{# ── New sentinel (shown only if even older messages exist) ───────────────── #}
+{% if has_more %}
+<div id="load-older-sentinel"
+     hx-get="{% url 'chat:message_history' conversation.id %}?before={{ oldest_id }}"
+     hx-trigger="intersect once"
+     hx-swap="outerHTML"
+     hx-target="#load-older-sentinel">
+  <div class="load-older-indicator">
+    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"
+          style="width:14px;height:14px;border-width:2px;color:var(--primary);"></span>
+    <span style="font-size:12px;color:var(--text-muted);">Loading older messages…</span>
+  </div>
+</div>
+{% endif %}
+
+{# ── Older message bubbles ─────────────────────────────────────────────────── #}
+{% for msg in messages %}
+  <div class="message-row {% if msg.role == 'user' %}user{% else %}assistant{% endif %}">
+    <div class="chat-bubble">
+      <div class="message-text">
+        {% if msg.role == 'user' %}
+          {{ msg.content|linebreaksbr }}
+        {% else %}
+          {{ msg.content|markdown_to_html }}
+        {% endif %}
+      </div>
+
+      {% if msg.role == 'assistant' and msg.sources %}
+        <div class="message-sources">
+          <span class="sources-toggle" onclick="toggleSources(this)">
+            <i class="bi bi-journal-text"></i>
+            Show Citations ({{ msg.sources|length }})
+            <i class="bi bi-chevron-down ms-1" style="font-size:10px;"></i>
+          </span>
+          <div class="sources-panel">
+            {% for src in msg.sources %}
+              <div class="source-item">
+                <div class="source-item-header">
+                  <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                  {{ src.source }} (Page {{ src.page }})
+                </div>
+                <div class="source-item-text">"{{ src.excerpt }}"</div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endfor %}

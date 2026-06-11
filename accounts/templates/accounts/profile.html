@@ -21,7 +21,10 @@
       </div>
 
       <!-- Styled Remove Avatar button -->
-      <button type="button" id="btn-remove-avatar" class="btn btn-sm btn-outline-danger mt-3 {% if not profile.avatar %}d-none{% endif %}" style="font-size:12px;padding:6px 12px;border-radius:var(--radius-sm);">
+      <button type="button" id="btn-remove-avatar"
+              data-url="{% url 'remove_avatar' %}"
+              class="btn btn-sm btn-outline-danger mt-3 {% if not profile.avatar %}d-none{% endif %}"
+              style="font-size:12px;padding:6px 12px;border-radius:var(--radius-sm);">
         <i class="bi bi-trash-fill me-1"></i> Remove Avatar
       </button>
 
