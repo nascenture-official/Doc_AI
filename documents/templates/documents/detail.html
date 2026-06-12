@@ -269,7 +269,7 @@
 
       <div class="action-buttons-group">
         {% if document.status == 'ready' %}
-          <a href="#" class="btn-action-lg btn-chat">
+          <a href="{% url 'chat:new' %}?doc={{ document.id }}" class="btn-action-lg btn-chat">
             <i class="bi bi-chat-fill"></i> Chat with Document
           </a>
         {% endif %}
@@ -278,7 +278,10 @@
         </a>
         <button type="button" class="btn-action-lg btn-delete-lg btn-delete-doc"
                 data-id="{{ document.id }}"
-                data-url="{% url 'documents:delete' document.id %}">
+                data-url="{% url 'documents:delete' document.id %}"
+                data-title="{{ document.title }}"
+                data-bs-toggle="modal"
+                data-bs-target="#deleteDocModal">
           <i class="bi bi-trash"></i> Delete
         </button>
       </div>
@@ -380,44 +383,62 @@
 {% block extra_js %}
 <script>
   $(function() {
-    // Delete Document logic (uses code from upload.js via class delegation)
-    $('.btn-delete-doc').on('click', function() {
-      const $btn = $(this);
-      const docId = $btn.data('id');
-      const deleteUrl = $btn.data('url');
-      const csrfToken = '{{ csrf_token }}';
+    // Delete Document logic (uses bootstrap modal confirmation)
+    var deleteDocModal = document.getElementById('deleteDocModal');
+    if (deleteDocModal) {
+      deleteDocModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const docId = button.getAttribute('data-id');
+        const deleteUrl = button.getAttribute('data-url');
+        const docTitle = button.getAttribute('data-title');
 
-      if (!confirm('Are you sure you want to delete this document? This cannot be undone.')) {
-        return;
-      }
+        document.getElementById('deleteModalDocTitle').textContent = docTitle;
 
-      $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status"></span> Deleting...');
+        const $confirmBtn = $('#confirmDeleteDocBtn');
+        $confirmBtn.off('click').on('click', function () {
+          $confirmBtn.prop('disabled', true);
+          $('#deleteDocBtnText').hide();
+          $('#deleteDocBtnLoader').css('display', 'inline-flex');
+          $('#deleteDocCancelBtn').prop('disabled', true);
+          $('#deleteDocModalClose').prop('disabled', true);
 
-      fetch(deleteUrl, {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': csrfToken,
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-      })
-      .then(res => {
-        if (!res.ok) throw new Error('Server returned ' + res.status);
-        return res.json();
-      })
-      .then(data => {
-        if (data.success) {
-          window.location.href = "{% url 'documents:list' %}";
-        } else {
-          showToast(data.error || 'Failed to delete document.', 'danger');
-          $btn.prop('disabled', false).html('<i class="bi bi-trash"></i> Delete');
-        }
-      })
-      .catch(err => {
-        console.error('Delete error:', err);
-        showToast('Something went wrong. Please try again.', 'danger');
-        $btn.prop('disabled', false).html('<i class="bi bi-trash"></i> Delete');
+          fetch(deleteUrl, {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': '{{ csrf_token }}',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+          })
+          .then(res => {
+            if (!res.ok) throw new Error('Server returned ' + res.status);
+            return res.json();
+          })
+          .then(data => {
+            const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
+            if (modalInstance) modalInstance.hide();
+
+            if (data.success) {
+              window.location.href = "{% url 'documents:list' %}";
+            } else {
+              showToast(data.error || 'Failed to delete document.', 'danger');
+            }
+          })
+          .catch(err => {
+            console.error('Delete error:', err);
+            showToast('Something went wrong. Please try again.', 'danger');
+            const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
+            if (modalInstance) modalInstance.hide();
+          })
+          .finally(() => {
+            $confirmBtn.prop('disabled', false);
+            $('#deleteDocBtnText').show();
+            $('#deleteDocBtnLoader').hide();
+            $('#deleteDocCancelBtn').prop('disabled', false);
+            $('#deleteDocModalClose').prop('disabled', false);
+          });
+        });
       });
-    });
+    }
   });
 </script>
 {% endblock %}
