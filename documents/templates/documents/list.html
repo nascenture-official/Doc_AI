@@ -1,0 +1,481 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block title %}My Documents — DocChat{% endblock %}
+{% block page_title %}My Documents{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Extra styles specific to the PDF Upload System */
+  .upload-container {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    border: 1px solid var(--border);
+    margin-bottom: 32px;
+    position: relative;
+  }
+
+  .drop-zone {
+    border: 2px dashed rgba(99, 102, 241, 0.3);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.01);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--primary);
+    background: rgba(99, 102, 241, 0.04);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.08);
+  }
+
+  .drop-zone.dragover .drop-icon {
+    transform: scale(1.15) translateY(-5px);
+    color: var(--primary-light);
+  }
+
+  .drop-icon {
+    font-size: 48px;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+  }
+
+  .drop-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .drop-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  /* Upload Queue */
+  .queue-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+  }
+
+  .queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .queue-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .queue-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .queue-file-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .queue-file-icon {
+    font-size: 24px;
+    color: var(--primary-light);
+    flex-shrink: 0;
+  }
+
+  .queue-file-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .queue-file-size {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* Progress Bar styling override */
+  .progress-custom {
+    height: 6px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .progress-bar-custom {
+    background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    height: 100%;
+    width: 0;
+    transition: width 0.1s ease;
+  }
+
+  /* Status Badges */
+  .badge-status {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .badge-status.uploading {
+    background: rgba(56, 189, 248, 0.1);
+    color: var(--info);
+  }
+
+  .badge-status.processing {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+  }
+
+  .badge-status.ready {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--success);
+  }
+
+  .badge-status.failed {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+  }
+
+  /* Document Table */
+  .documents-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    padding: 24px;
+  }
+
+  .documents-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .table-custom {
+    width: 100%;
+    margin-bottom: 0;
+    color: var(--text-primary);
+    border-collapse: collapse;
+  }
+
+  .table-custom th {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+
+  .table-custom td {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14.5px;
+    color: var(--text-secondary);
+    vertical-align: middle;
+  }
+
+  .table-custom tr:hover td {
+    background: rgba(255, 255, 255, 0.01);
+  }
+
+  .table-custom tr:last-child td {
+    border-bottom: none;
+  }
+
+  .doc-title-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    max-width: 320px;
+  }
+
+  .doc-title-cell span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .action-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    transition: all var(--transition);
+    cursor: pointer;
+  }
+
+  .action-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .action-btn.btn-delete:hover {
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Spinner */
+  .spinner-xs {
+    width: 12px;
+    height: 12px;
+    border-width: 2px;
+  }
+
+  /* Pagination */
+  .pagination-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-top: 20px;
+    margin-top: 4px;
+    border-top: 1px solid var(--border);
+  }
+
+  .pagination-info {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .pagination-sep {
+    margin: 0 6px;
+    opacity: 0.4;
+  }
+
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .page-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-decoration: none;
+    transition: all var(--transition);
+    cursor: pointer;
+  }
+
+  .page-btn:hover:not(.disabled) {
+    background: rgba(99,102,241,0.08);
+    border-color: var(--primary);
+    color: var(--primary-light);
+  }
+
+  .page-btn.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .page-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-decoration: none;
+    transition: all var(--transition);
+  }
+
+  .page-pill:hover {
+    background: rgba(99,102,241,0.08);
+    border-color: var(--primary);
+    color: var(--primary-light);
+  }
+
+  .page-pill.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    pointer-events: none;
+  }
+
+  /* Responsive Upload Layout for Small Screens */
+  @media (max-width: 575px) {
+    .upload-container {
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .drop-zone {
+      padding: 32px 16px;
+      gap: 12px;
+    }
+    .drop-icon {
+      font-size: 36px;
+    }
+    .drop-title {
+      font-size: 14.5px;
+    }
+    .drop-sub {
+      font-size: 12px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+
+  <!-- CSRF and URLs for JS -->
+  <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+  <input type="hidden" id="upload-url" value="{% url 'documents:upload_ajax' %}">
+
+  <!-- Drag-and-Drop Upload Section -->
+  <div class="upload-container">
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-icon">
+        <i class="bi bi-cloud-arrow-up-fill"></i>
+      </div>
+      <div>
+        <h3 class="drop-title d-none d-md-block">Drag and drop your PDF files here</h3>
+        <h3 class="drop-title d-md-none">Upload your PDF files</h3>
+        <p class="drop-sub d-none d-md-block">or click to browse your files (Max 20MB per PDF)</p>
+        <p class="drop-sub d-md-none">Tap to browse your files (Max 20MB per PDF)</p>
+      </div>
+    </div>
+    <input type="file" id="file-input" multiple accept=".pdf" class="d-none">
+  </div>
+
+  <!-- Upload Queue Section -->
+  <div id="queue-section" class="d-none">
+    <h3 class="queue-title">Uploading queue</h3>
+    <div class="queue-list" id="upload-queue">
+      <!-- Queue items will be dynamically inserted here -->
+    </div>
+  </div>
+
+  <!-- Document List Section -->
+  <div class="documents-card">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+      <h3 class="section-title mb-0">My Documents</h3>
+      <span class="badge-custom badge-indigo" id="doc-counter">{{ total_count }} total</span>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="{% if documents %}d-none{% endif %}" style="text-align:center;padding:48px 0;color:var(--text-muted);">
+      <i class="bi bi-file-earmark-pdf" style="font-size:48px;opacity:0.3;display:block;margin-bottom:16px;"></i>
+      <p style="font-size:15px;margin-bottom:0;">You haven't uploaded any documents yet.</p>
+      <p style="font-size:13px;opacity:0.7;">Upload a PDF above to view and manage it here.</p>
+    </div>
+
+    <!-- Documents Table -->
+    <div id="table-section" class="documents-table-wrapper {% if not documents %}d-none{% endif %}">
+      <table class="table-custom" id="documents-table">
+        <thead>
+          <tr>
+            <th>Document Name</th>
+            <th>Uploaded Date</th>
+            <th>File Size</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="documents-tbody">
+          {% for doc in documents %}
+          <tr id="doc-row-{{ doc.id }}">
+            <td>
+              <div class="doc-title-cell" id="doc-title-cell-{{ doc.id }}">
+                <i class="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>
+                {% if doc.status == 'ready' %}
+                  <a href="{% url 'documents:detail' doc.id %}" class="text-decoration-none text-light-hover fw-medium" title="View Details & Summaries">
+                    <span>{{ doc.title }}</span>
+                  </a>
+                {% else %}
+                  <span title="{{ doc.title }}" class="text-muted">{{ doc.title }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td>{{ doc.uploaded_at|date:"M d, Y, I:i A" }}</td>
+            <td>{{ doc.file_size|filesizeformat }}</td>
+            <td id="status-cell-{{ doc.id }}">
+              {% include "documents/_status_badge.html" with doc=doc %}
+            </td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'documents:download' doc.id %}" class="action-btn" title="Download PDF">
+                  <i class="bi bi-download"></i>
+                </a>
+                <button type="button" class="action-btn btn-delete btn-delete-doc" 
+                        data-id="{{ doc.id }}" 
+                        data-url="{% url 'documents:delete' doc.id %}"
+                        title="Delete Document">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "_pagination.html" with page_obj=page_obj %}
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/upload.js' %}"></script>
+{% endblock %}

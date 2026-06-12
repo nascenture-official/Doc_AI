@@ -1,0 +1,32 @@
+{# Rendered by SidebarConversationsView — appended into #chat-list via HTMX #}
+
+{% for convo in conversations %}
+  <div class="chat-list-item-wrapper {% if active_convo_id == convo.id %}active{% endif %}"
+       id="convo-item-{{ convo.id }}">
+    <a href="{% url 'chat:detail' convo.id %}" class="chat-list-item">
+      <i class="bi bi-chat-left-text" style="flex-shrink:0;font-size:13px;"></i>
+      <span class="chat-item-title">{{ convo.title|default:"New Conversation" }}</span>
+    </a>
+    <button class="chat-item-delete"
+            title="Delete conversation"
+            data-bs-toggle="modal"
+            data-bs-target="#deleteChatModal"
+            data-convo-id="{{ convo.id }}"
+            data-convo-title="{{ convo.title|default:'New Conversation'|escapejs }}">
+      <i class="bi bi-trash" style="font-size: 13px;"></i>
+    </button>
+  </div>
+{% endfor %}
+
+{# Sentinel — replaces itself with the next page when scrolled into view #}
+{% if has_more %}
+<div id="sidebar-load-more-{{ next_offset }}"
+     hx-get="{% url 'chat:sidebar_conversations' %}?offset={{ next_offset }}&active={{ active_convo_id }}"
+     hx-trigger="intersect once"
+     hx-swap="outerHTML"
+     hx-target="#sidebar-load-more-{{ next_offset }}">
+  <div style="text-align:center;padding:10px 0;color:var(--text-muted);">
+    <span class="spinner-border" style="width:14px;height:14px;border-width:2px;color:var(--primary);" role="status" aria-hidden="true"></span>
+  </div>
+</div>
+{% endif %}

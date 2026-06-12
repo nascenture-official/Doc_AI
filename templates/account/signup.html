@@ -140,11 +140,19 @@
     {% endif %}
   </div>
 
-  <div class="form-check mb-4">
-    <input class="form-check-input" type="checkbox" id="agree-terms" name="agree_terms" required>
-    <label class="form-check-label" for="agree-terms">
-      I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
-    </label>
+  <div class="form-group mb-4">
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" id="agree-terms" name="agree_terms" required {% if form.agree_terms.value %}checked{% endif %}>
+      <label class="form-check-label" for="agree-terms">
+        I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+      </label>
+    </div>
+    {% if form.agree_terms.errors %}
+    <div class="field-error">
+      <i class="bi bi-exclamation-circle"></i>
+      {% for e in form.agree_terms.errors %}{{ e }}{% endfor %}
+    </div>
+    {% endif %}
   </div>
 
   <button id="btn-signup-submit" type="submit" class="btn-primary-custom">

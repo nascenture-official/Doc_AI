@@ -1,0 +1,213 @@
+{% extends "base_app.html" %}
+{% load static %}
+{% load markdown_extras %}
+
+{% block title %}Search Documents — DocChat{% endblock %}
+{% block page_title %}Keyword Search{% endblock %}
+
+{% block extra_css %}
+<style>
+  .search-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    padding: 32px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .search-form-wrapper {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 30px;
+  }
+
+  .search-input {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    color: var(--text-primary) !important;
+    padding: 14px 20px !important;
+    font-size: 15px !important;
+    flex: 1;
+    transition: all var(--transition);
+  }
+
+  .search-input:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px var(--primary-glow) !important;
+  }
+
+  .search-btn-custom {
+    padding: 12px 28px;
+    background: var(--primary);
+    border: 1px solid var(--primary);
+    color: #fff;
+    font-weight: 600;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .search-btn-custom:hover {
+    background: var(--primary-light);
+    border-color: var(--primary-light);
+    transform: translateY(-1px);
+  }
+
+  .highlight-mark {
+    background: rgba(245, 158, 11, 0.25);
+    color: #fde68a;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .search-result-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: all var(--transition);
+  }
+
+  .search-result-item:hover {
+    border-color: rgba(99, 102, 241, 0.25);
+    background: var(--bg-card-hover);
+    transform: translateY(-1px);
+  }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 16px;
+  }
+
+  .result-title {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .result-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .result-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    border-left: 2px solid var(--border);
+    padding-left: 14px;
+    margin-bottom: 0;
+  }
+
+  /* Pagination */
+  .pagination-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-top: 20px;
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .pagination-info { font-size: 13px; color: var(--text-muted); }
+  .pagination-sep { margin: 0 6px; opacity: 0.4; }
+  .pagination-controls { display: flex; align-items: center; gap: 6px; }
+  .page-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 14px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--bg-card);
+    color: var(--text-secondary); font-size: 13px;
+    text-decoration: none; transition: all var(--transition);
+  }
+  .page-btn:hover:not(.disabled) { background: rgba(99,102,241,0.08); border-color: var(--primary); color: var(--primary-light); }
+  .page-btn.disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+  .page-pill {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 32px; height: 32px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--bg-card);
+    color: var(--text-secondary); font-size: 13px; text-decoration: none;
+    transition: all var(--transition);
+  }
+  .page-pill:hover { background: rgba(99,102,241,0.08); border-color: var(--primary); color: var(--primary-light); }
+  .page-pill.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; pointer-events: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+  
+  <div class="search-card">
+    <div class="mb-4">
+      <h3 class="fw-bold mb-1" style="font-size:18px;">Search Across PDF Files</h3>
+      <p class="text-secondary mb-0" style="font-size:13.5px;">Search for matching words and phrases inside your documents. No AI answers, just pure content results.</p>
+    </div>
+
+    <!-- Search Form -->
+    <form method="GET" action="{% url 'search:search' %}">
+      <div class="search-form-wrapper">
+        <input type="text" name="q" value="{{ query }}" class="search-input" placeholder="Type a keyword or phrase to search (e.g. 'project schedule' or 'model specifications')..." required>
+        <button type="submit" class="search-btn-custom">
+          <i class="bi bi-search"></i> Search
+        </button>
+      </div>
+    </form>
+
+    <!-- Results Section -->
+    {% if query %}
+      <div class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-3" style="border-color:var(--border) !important;">
+        <h4 class="section-title mb-0" style="font-size:15px;font-weight:600;">Search Results</h4>
+        <span class="badge-custom badge-indigo">{{ total_count }} occurrence{{ total_count|pluralize }} found</span>
+      </div>
+
+      {% if results %}
+        <div>
+          {% for res in results %}
+            <div class="search-result-item">
+              <div class="result-header">
+                <div class="result-title">
+                  <i class="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>
+                  <span>{{ res.source }}</span>
+                </div>
+                <div class="result-meta">
+                  <span class="badge bg-secondary py-1.5 px-2.5" style="background:rgba(255,255,255,0.04) !important; border:1px solid var(--border); color:var(--text-secondary);">
+                    Page {{ res.page }}
+                  </span>
+                </div>
+              </div>
+              <p class="result-text">
+                ... {{ res.text|highlight_search:query }} ...
+              </p>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-search-heart mb-3 d-block" style="font-size: 40px; opacity: 0.3;"></i>
+          <h5 class="fw-bold mb-1">No Matches Found</h5>
+          <p style="font-size:13.5px;max-width:320px;margin:0 auto;opacity:0.8;">We couldn't find any documents containing the phrase "{{ query }}". Try searching for different keywords.</p>
+        </div>
+      {% endif %}
+
+      {# Pagination — shown for both results pages and as empty indicator #}
+      {% include "_pagination.html" with page_obj=page_obj query=query %}
+
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}

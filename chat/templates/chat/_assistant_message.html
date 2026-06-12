@@ -1,0 +1,47 @@
+{% load markdown_extras %}
+
+<!-- ── Assistant Response Bubble ── -->
+<div class="message-row assistant" id="assistant-msg-{{ assistant_msg.id }}">
+  <div class="chat-bubble assistant-bubble-animate">
+    <div class="message-text ai-response-content">
+      {{ assistant_msg.content|markdown_to_html }}
+    </div>
+
+    <!-- Citations / Sources Accordion -->
+    {% if assistant_msg.sources %}
+      <div class="message-sources">
+        <span class="sources-toggle" onclick="toggleSources(this)">
+          <i class="bi bi-journal-text"></i>
+          Show Citations ({{ assistant_msg.sources|length }})
+          <i class="bi bi-chevron-down ms-1" style="font-size:10px;"></i>
+        </span>
+        <div class="sources-panel">
+          {% for src in assistant_msg.sources %}
+            <div class="source-item">
+              <div class="source-item-header">
+                <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                {{ src.source }} (Page {{ src.page }})
+              </div>
+              <div class="source-item-text">"{{ src.excerpt }}"</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  // Scroll to the new message after it appears
+  (function() {
+    var container = document.getElementById('chat-messages-container');
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+    
+    // Reset the send button icon to the up arrow
+    if (typeof window.resetChatSendButton === 'function') {
+      window.resetChatSendButton();
+    }
+  })();
+</script>

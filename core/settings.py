@@ -34,9 +34,13 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "crispy_forms",
     "crispy_bootstrap5",
+    "django_q",
 
     # Local
     "accounts",
+    "documents",
+    "chat",
+    "search",
 ]
 
 MIDDLEWARE = [
@@ -105,6 +109,9 @@ ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_ADAPTER = "accounts.adapters.CustomAccountAdapter"
 SOCIALACCOUNT_ADAPTER = "accounts.adapters.CustomSocialAccountAdapter"
 ACCOUNT_SIGNUP_FORM_CLASS = "accounts.forms.CustomSignupForm"
+SOCIALACCOUNT_FORMS = {
+    "signup": "accounts.social_forms.CustomSocialSignupForm",
+}
 ACCOUNT_RATE_LIMITS = {
     "login_failed": "5/5m",
 }
@@ -178,3 +185,26 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 # Default primary key type
 # ---------------------------------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ---------------------------------------------------------------------------
+# Background Task Queue (django-q2)
+# ---------------------------------------------------------------------------
+Q_CLUSTER = {
+    'name': 'DjangQ',
+    'workers': 2,
+    'recycle': 500,
+    'timeout': 600,   # Task killed after 600s if still running
+    'retry': 720,     # Must be > timeout; retries the task after 720s if not completed
+    'orm': 'default', # SQLite ORM backend
+}
+
+# ---------------------------------------------------------------------------
+# Gemini AI Configuration
+# ---------------------------------------------------------------------------
+GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+
+# ---------------------------------------------------------------------------
+# OpenAI Configuration
+# ---------------------------------------------------------------------------
+OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
+

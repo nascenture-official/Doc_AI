@@ -7,3 +7,4 @@ django-allauth[google]
 requests
 PyJWT
 cryptography
+pypdf

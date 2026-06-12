@@ -11,5 +11,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),      # Custom views (must come first)
     path("accounts/", include("allauth.urls")),       # All allauth routes
+    path("documents/", include("documents.urls")),
+    path("chat/", include("chat.urls")),
+    path("search/", include("search.urls")),
     path("", landing_page, name="root"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

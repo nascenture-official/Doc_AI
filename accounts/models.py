@@ -1,10 +1,20 @@
 from django.db import models
 from django.contrib.auth.models import User
+import os
+
+
+def avatar_upload_path(instance, filename):
+    """
+    Upload avatars to: media/avatars/<username>/<filename>
+    Falls back to user ID if username is somehow unavailable.
+    """
+    username = instance.user.username or str(instance.user.id)
+    return os.path.join("avatars", username, filename)
 
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
-    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+    avatar = models.ImageField(upload_to=avatar_upload_path, blank=True, null=True)
     bio = models.TextField(max_length=300, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

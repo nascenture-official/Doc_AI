@@ -14,8 +14,13 @@ def create_user_profile(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
-    """Keep profile in sync when User is saved."""
-    if hasattr(instance, "profile"):
+    """Keep profile in sync when User is saved (name/email changes only).
+
+    NOTE: We guard against re-saving when the profile itself triggered
+    the User save (e.g. from ProfileUpdateForm.save), which would cause
+    a second pre_save signal and interfere with avatar deletion.
+    """
+    if hasattr(instance, "profile") and not getattr(instance, "_profile_saving", False):
         instance.profile.save()
 
 
@@ -32,20 +37,33 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 
 @receiver(pre_save, sender=UserProfile)
 def auto_delete_file_on_change(sender, instance, **kwargs):
-    """Deletes old file from filesystem when corresponding UserProfile object is updated with new file or cleared."""
+    """Deletes old file from filesystem when avatar is replaced or cleared.
+
+    Compares file *names* (strings) rather than FieldFile objects to
+    avoid subtle equality edge-cases with cleared/empty fields.
+    Also removes the now-empty per-user subfolder if nothing is left.
+    """
     if not instance.pk:
-        return False
+        return
 
     try:
         old_profile = UserProfile.objects.get(pk=instance.pk)
     except UserProfile.DoesNotExist:
-        return False
+        return
 
-    old_file = old_profile.avatar
-    new_file = instance.avatar
-    if old_file and old_file != new_file:
-        if os.path.isfile(old_file.path):
-            try:
-                os.remove(old_file.path)
-            except Exception:
-                pass
+    old_name = old_profile.avatar.name if old_profile.avatar else None
+    new_name = instance.avatar.name if instance.avatar else None
+
+    # Only act when the old file actually existed and is being replaced/cleared
+    if old_name and old_name != new_name:
+        storage = old_profile.avatar.storage
+        try:
+            old_path = storage.path(old_name)
+            if os.path.isfile(old_path):
+                os.remove(old_path)
+                # Clean up empty per-user folder (e.g. media/avatars/<username>/)
+                parent_dir = os.path.dirname(old_path)
+                if os.path.isdir(parent_dir) and not os.listdir(parent_dir):
+                    os.rmdir(parent_dir)
+        except Exception:
+            pass
