@@ -238,6 +238,9 @@ $(function () {
             <button type="button" class="action-btn btn-delete btn-delete-doc" 
                     data-id="${doc.id}" 
                     data-url="/documents/${doc.id}/delete/"
+                    data-title="${doc.title}"
+                    data-bs-toggle="modal"
+                    data-bs-target="#deleteDocModal"
                     title="Delete Document">
               <i class="bi bi-trash"></i>
             </button>
@@ -265,51 +268,73 @@ $(function () {
     $docCounter.text(newCount + ' total');
   }
 
-  // ── Document Deletion (Event Delegation) ──────────────────
-  $(document).on('click', '.btn-delete-doc', function () {
-    const $btn = $(this);
-    const docId = $btn.data('id');
-    const deleteUrl = $btn.data('url');
+  // ── Document Deletion (Bootstrap Modal) ──────────────────
+  const deleteDocModal = document.getElementById('deleteDocModal');
+  if (deleteDocModal) {
+    deleteDocModal.addEventListener('show.bs.modal', function (event) {
+      const button = event.relatedTarget;
+      const docId = button.getAttribute('data-id');
+      const deleteUrl = button.getAttribute('data-url');
+      const docTitle = button.getAttribute('data-title');
 
-    if (!confirm('Are you sure you want to delete this document? This cannot be undone.')) {
-      return;
-    }
+      document.getElementById('deleteModalDocTitle').textContent = docTitle;
 
-    $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status"></span>');
+      const $confirmBtn = $('#confirmDeleteDocBtn');
+      
+      // Clear previous click listener and bind new one
+      $confirmBtn.off('click').on('click', function () {
+        $confirmBtn.prop('disabled', true);
+        $('#deleteDocBtnText').hide();
+        $('#deleteDocBtnLoader').css('display', 'inline-flex');
+        $('#deleteDocCancelBtn').prop('disabled', true);
+        $('#deleteDocModalClose').prop('disabled', true);
 
-    fetch(deleteUrl, {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': csrfToken,
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Server returned ' + res.status);
-        return res.json();
-      })
-      .then(data => {
-        if (data.success) {
-          $(`#doc-row-${docId}`).fadeOut(300, function () {
-            $(this).remove();
-            updateCounter(-1);
+        fetch(deleteUrl, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        })
+        .then(res => {
+          if (!res.ok) throw new Error('Server returned ' + res.status);
+          return res.json();
+        })
+        .then(data => {
+          const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
+          if (modalInstance) modalInstance.hide();
 
-            // If no rows left, show empty state
-            if ($tbody.children('tr').length === 0) {
-              $tableSection.addClass('d-none');
-              $emptyState.removeClass('d-none');
-            }
-          });
-          window.showToast('Document deleted successfully.', 'success');
-        } else {
-          window.showToast(data.error || 'Failed to delete document.', 'danger');
-          $btn.prop('disabled', false).html('<i class="bi bi-trash"></i>');
-        }
-      })
-      .catch(err => {
-        console.error('Delete error:', err);
-        window.showToast('Something went wrong. Please try again.', 'danger');
-        $btn.prop('disabled', false).html('<i class="bi bi-trash"></i>');
+          if (data.success) {
+            $(`#doc-row-${docId}`).fadeOut(300, function () {
+              $(this).remove();
+              updateCounter(-1);
+
+              // If no rows left, show empty state
+              if ($tbody.children('tr').length === 0) {
+                $tableSection.addClass('d-none');
+                $emptyState.removeClass('d-none');
+              }
+            });
+            window.showToast('Document deleted successfully.', 'success');
+          } else {
+            window.showToast(data.error || 'Failed to delete document.', 'danger');
+          }
+        })
+        .catch(err => {
+          console.error('Delete error:', err);
+          window.showToast('Something went wrong. Please try again.', 'danger');
+          const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
+          if (modalInstance) modalInstance.hide();
+        })
+        .finally(() => {
+          // Reset modal button states
+          $confirmBtn.prop('disabled', false);
+          $('#deleteDocBtnText').show();
+          $('#deleteDocBtnLoader').hide();
+          $('#deleteDocCancelBtn').prop('disabled', false);
+          $('#deleteDocModalClose').prop('disabled', false);
+        });
       });
-  });
+    });
+  }
 });

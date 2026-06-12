@@ -458,6 +458,9 @@
                 <button type="button" class="action-btn btn-delete btn-delete-doc" 
                         data-id="{{ doc.id }}" 
                         data-url="{% url 'documents:delete' doc.id %}"
+                        data-title="{{ doc.title }}"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteDocModal"
                         title="Delete Document">
                   <i class="bi bi-trash"></i>
                 </button>
@@ -477,5 +480,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/upload.js' %}"></script>
+<script src="{% static 'js/upload.js' %}?v=2"></script>
 {% endblock %}
