@@ -10,4 +10,6 @@ urlpatterns = [
     path('<int:pk>/download/', views.DocumentDownloadView.as_view(), name='download'),
     path('<int:pk>/status/', views.DocumentStatusBadgeView.as_view(), name='status'),
     path('<int:pk>/detail/', views.DocumentDetailView.as_view(), name='detail'),
+    path('<int:pk>/generate-summary/', views.GenerateSummaryAjaxView.as_view(), name='generate_summary'),
+    path('<int:pk>/summary-status/', views.SummaryStatusAjaxView.as_view(), name='summary_status'),
 ]

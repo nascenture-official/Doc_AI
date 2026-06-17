@@ -30,18 +30,3 @@
     {% endif %}
   </div>
 </div>
-
-<script>
-  // Scroll to the new message after it appears
-  (function() {
-    var container = document.getElementById('chat-messages-container');
-    if (container) {
-      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-    }
-    
-    // Reset the send button icon to the up arrow
-    if (typeof window.resetChatSendButton === 'function') {
-      window.resetChatSendButton();
-    }
-  })();
-</script>

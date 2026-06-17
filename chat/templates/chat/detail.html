@@ -474,12 +474,7 @@
         </div>
         <div class="modal-footer border-top-0 pt-0">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="deleteChatCancelBtn">Cancel</button>
-          <!-- The actual HTMX delete button -->
-          <button type="button" class="btn btn-danger" id="confirmDeleteChatBtn"
-                  hx-post=""
-                  hx-vals='{"active_id": "{{ active_convo_id }}"}'
-                  hx-target=""
-                  hx-swap="outerHTML swap:300ms">
+          <button type="button" class="btn btn-danger" id="confirmDeleteChatBtn">
             <!-- Normal state -->
             <span id="deleteBtnText">
               <i class="bi bi-trash me-1"></i>Delete
@@ -676,10 +671,8 @@
     sendBtn.addEventListener('click', function(e) {
       if (sendBtn.classList.contains('is-generating')) {
         e.preventDefault();
-        // Find the pending AI placeholder and abort its request
         var placeholder = document.querySelector('[id^="ai-placeholder-"]');
         if (placeholder) {
-          // Send abort signal to server so it doesn't save to DB
           var userMsgId = placeholder.id.replace('ai-placeholder-', '');
           var convoId = "{{ conversation.id }}";
           var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -687,9 +680,11 @@
             method: 'POST',
             headers: {'X-CSRFToken': csrf}
           });
-
-          htmx.abort(placeholder);
-          placeholder.remove(); // remove it from UI
+          if (window._activeStreamReader) {
+            window._activeStreamReader.cancel();
+            window._activeStreamReader = null;
+          }
+          placeholder.remove();
         }
         resetSendButton();
       }
@@ -732,41 +727,56 @@
 
     // Modal Delete logic
     var deleteChatModal = document.getElementById('deleteChatModal');
+    var _pendingDeleteConvoId = null;
+
     if (deleteChatModal) {
       deleteChatModal.addEventListener('show.bs.modal', function (event) {
         var button = event.relatedTarget;
-        var convoId = button.getAttribute('data-convo-id');
+        _pendingDeleteConvoId = button.getAttribute('data-convo-id');
         var convoTitle = button.getAttribute('data-convo-title');
-
         document.getElementById('deleteModalConvoTitle').textContent = convoTitle;
-
-        var confirmBtn = document.getElementById('confirmDeleteChatBtn');
-        confirmBtn.setAttribute('hx-post', '/chat/' + convoId + '/delete/');
-        confirmBtn.setAttribute('hx-target', '#convo-item-' + convoId);
-        htmx.process(confirmBtn);
       });
 
-      // Reset loader state whenever modal is fully hidden
       deleteChatModal.addEventListener('hidden.bs.modal', function () {
         _resetDeleteBtn();
       });
 
       var confirmBtn = document.getElementById('confirmDeleteChatBtn');
       if (confirmBtn) {
-        // Show spinner when the HTMX request starts
-        confirmBtn.addEventListener('htmx:beforeRequest', function () {
-          _showDeleteLoader();
-        });
+        confirmBtn.addEventListener('click', function () {
+          if (!_pendingDeleteConvoId) return;
+          var convoId = _pendingDeleteConvoId;
+          var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-        // On success: close the modal (outerHTML swap will remove the list item)
-        confirmBtn.addEventListener('htmx:afterRequest', function (evt) {
-          if (evt.detail.successful) {
-            var modalInstance = bootstrap.Modal.getInstance(deleteChatModal);
-            if (modalInstance) modalInstance.hide();
-          } else {
-            // On error: restore button so user can retry
+          _showDeleteLoader();
+
+          fetch('/chat/' + convoId + '/delete/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrf, 'HX-Request': 'true' },
+            body: new URLSearchParams({ active_id: '{{ active_convo_id }}' })
+          })
+          .then(function (resp) {
+            if (resp.ok) {
+              var redirect = resp.headers.get('HX-Redirect');
+              if (redirect) {
+                window.location.href = redirect;
+              } else {
+                var item = document.getElementById('convo-item-' + convoId);
+                if (item) {
+                  item.style.transition = 'opacity 300ms';
+                  item.style.opacity = '0';
+                  setTimeout(function () { item.remove(); }, 300);
+                }
+                var modalInstance = bootstrap.Modal.getInstance(deleteChatModal);
+                if (modalInstance) modalInstance.hide();
+              }
+            } else {
+              _resetDeleteBtn();
+            }
+          })
+          .catch(function () {
             _resetDeleteBtn();
-          }
+          });
         });
       }
     }
@@ -795,8 +805,106 @@
       loaderEl.style.display = 'none';
     }
     
-    // Expose reset globally so _assistant_message.html can call it
+    // Expose reset globally
     window.resetChatSendButton = resetSendButton;
+
+    // ── Streaming support ─────────────────────────────────────────────────────
+    window._activeStreamReader = null;
+    var _streamGen = 0;  // increments on every new stream; stale callbacks compare against this
+
+    window.startStreaming = function(streamUrl, placeholderId) {
+      _streamGen++;
+      var myGen = _streamGen;
+
+      var placeholder = document.getElementById(placeholderId);
+      if (!placeholder) return;
+
+      var textTarget = null;
+      var sseBuffer = '';
+      var firstToken = true;
+
+      fetch(streamUrl)
+        .then(function(resp) {
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          var reader = resp.body.getReader();
+          window._activeStreamReader = reader;
+          var decoder = new TextDecoder();
+
+          function pump() {
+            return reader.read().then(function(result) {
+              if (_streamGen !== myGen) return;  // aborted and a new stream started
+              if (result.done) { window._activeStreamReader = null; return; }
+
+              sseBuffer += decoder.decode(result.value, { stream: true });
+              var events = sseBuffer.split('\n\n');
+              sseBuffer = events.pop();
+
+              events.forEach(function(block) {
+                if (_streamGen !== myGen) return;
+                var dataLine = '';
+                block.split('\n').forEach(function(line) {
+                  if (line.startsWith('data: ')) dataLine = line.slice(6);
+                });
+                if (!dataLine) return;
+                var d;
+                try { d = JSON.parse(dataLine); } catch(e) { return; }
+
+                if (d.type === 'token') {
+                  if (firstToken) {
+                    firstToken = false;
+                    var bubble = placeholder.querySelector('.chat-bubble');
+                    bubble.innerHTML = '<div class="message-text ai-response-content"></div>';
+                    bubble.classList.remove('ai-thinking-bubble');
+                    bubble.classList.add('assistant-bubble-animate');
+                    textTarget = bubble.querySelector('.ai-response-content');
+                  }
+                  textTarget.innerText = (textTarget.innerText || '') + d.text;
+                  if (container) container.scrollTop = container.scrollHeight;
+
+                } else if (d.type === 'done') {
+                  var ph = document.getElementById(placeholderId);
+                  if (ph) {
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = d.html;
+                    var newEl = tmp.firstElementChild;
+
+                    ph.id = newEl.id;
+
+                    var phText = ph.querySelector('.ai-response-content');
+                    var newText = newEl.querySelector('.ai-response-content');
+                    if (phText && newText) phText.innerHTML = newText.innerHTML;
+
+                    var phBubble = ph.querySelector('.chat-bubble');
+                    if (phBubble) phBubble.classList.remove('assistant-bubble-animate');
+
+                    var newSources = newEl.querySelector('.message-sources');
+                    if (newSources && phBubble) phBubble.appendChild(newSources);
+                  }
+                  window._activeStreamReader = null;
+                  resetSendButton();
+                  if (container) container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+
+                } else if (d.type === 'abort' || d.type === 'error') {
+                  var ph = document.getElementById(placeholderId);
+                  if (ph) ph.remove();
+                  window._activeStreamReader = null;
+                  resetSendButton();
+                }
+              });
+              return pump();
+            });
+          }
+          return pump();
+        })
+        .catch(function(err) {
+          if (_streamGen !== myGen) return;  // stale — a new stream owns the UI now
+          if (err.name !== 'AbortError') console.error('Stream error:', err);
+          window._activeStreamReader = null;
+          var ph = document.getElementById(placeholderId);
+          if (ph) ph.remove();
+          resetSendButton();
+        });
+    };
   })();
 </script>
 {% endblock %}

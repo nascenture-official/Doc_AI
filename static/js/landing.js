@@ -100,7 +100,6 @@
     }, 2000);
   }
 
-<<<<<<< HEAD
   /* ── 6. Theme Toggle (Desktop & Mobile) ──────────────── */
   const themeToggle = document.getElementById('theme-toggle');
   const themeIcon = document.getElementById('theme-icon');
@@ -154,6 +153,4 @@
     });
   }
 
-=======
->>>>>>> origin/main
 })();

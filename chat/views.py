@@ -1,14 +1,14 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, StreamingHttpResponse
 from django.contrib import messages
 from django.urls import reverse
 from django.core.cache import cache
 
 from documents.models import Document
 from .models import Conversation, Message
-from .services.ai_service import generate_chat_response, auto_generate_title
+from .services.ai_service import generate_chat_response, auto_generate_title, stream_chat_response
 
 
 # How many messages to load on initial chat page render
@@ -225,8 +225,35 @@ class SendMessageView(LoginRequiredMixin, View):
         response = render(request, 'chat/_user_message.html', {
             'user_msg': user_msg,
             'ai_response_url': reverse('chat:ai_response', args=[convo.id, user_msg.id]),
+            'stream_url': reverse('chat:stream_response', args=[convo.id, user_msg.id]),
         })
         response['HX-Trigger'] = 'clearInput'
+        return response
+
+
+class StreamAIResponseView(LoginRequiredMixin, View):
+    """
+    Streams the AI response as Server-Sent Events. The client uses fetch() +
+    ReadableStream to progressively display tokens, replacing the placeholder
+    with server-rendered markdown HTML on completion.
+    """
+    login_url = "/accounts/login/"
+
+    def get(self, request, pk, user_msg_id):
+        convo = get_object_or_404(Conversation, pk=pk, user=request.user)
+        user_msg = get_object_or_404(Message, pk=user_msg_id, conversation=convo, role='user')
+
+        # Auto-generate title on first user message
+        if convo.messages.filter(role='user').count() == 1:
+            convo.title = auto_generate_title(user_msg.content)
+            convo.save()
+
+        def event_stream():
+            yield from stream_chat_response(convo, user_msg.content, user_msg.id)
+
+        response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'
         return response
 
 
