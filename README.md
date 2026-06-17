@@ -224,7 +224,7 @@ To contribute:
 1. Fork the repository
 2. Create a feature branch
 3. Commit your changes
-4. Open a pull requestERROR stream_chat_response error: Error executing plan: Internal error: Error finding id
+4. Open a pull request
 
 ## License
 
