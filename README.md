@@ -213,7 +213,7 @@ Every chat message goes through two phases:
 
 ## Demo Video
 
-[Demo video](static/demos/demo_video.mp4)
+[Demo video](https://github.com/user-attachments/assets/a42d655d-566e-4118-9e57-db5c5a8f1abd)
 
 ## Contributing
 
