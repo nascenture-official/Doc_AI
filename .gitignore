@@ -26,6 +26,13 @@ LICENSE
 
 # claude folder 
 .claude/
+.serena/
+CLAUDE.md
 
 # Vector_store
-vector_store/
+chroma_db/
+
+embedding_cache/
+
+django.log
+

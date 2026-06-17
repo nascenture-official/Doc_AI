@@ -91,21 +91,33 @@
     line-height: 1.7;
   }
 
-  .summary-markdown h1, .summary-markdown h2, .summary-markdown h3 {
+  .summary-markdown h1,
+  .summary-markdown h2,
+  .summary-markdown h3 {
     color: var(--text-primary);
     margin-top: 24px;
     margin-bottom: 12px;
     font-weight: 600;
   }
-  .summary-markdown h1 { font-size: 1.4rem; }
-  .summary-markdown h2 { font-size: 1.2rem; }
-  .summary-markdown h3 { font-size: 1.05rem; }
+
+  .summary-markdown h1 {
+    font-size: 1.4rem;
+  }
+
+  .summary-markdown h2 {
+    font-size: 1.2rem;
+  }
+
+  .summary-markdown h3 {
+    font-size: 1.05rem;
+  }
 
   .summary-markdown p {
     margin-bottom: 16px;
   }
 
-  .summary-markdown ul, .summary-markdown ol {
+  .summary-markdown ul,
+  .summary-markdown ol {
     margin-bottom: 16px;
     padding-left: 20px;
   }
@@ -235,7 +247,7 @@
 
 {% block content %}
 <div class="container-fluid px-0">
-  
+
   <div class="mb-4">
     <a href="{% url 'documents:list' %}" class="btn btn-outline-custom border-0 p-0 text-secondary">
       <i class="bi bi-arrow-left me-1"></i> Back to Documents
@@ -252,36 +264,35 @@
         <div class="doc-meta-info">
           <h2>{{ document.title }}</h2>
           {% if document.status == 'ready' %}
-            <span class="badge-status-detail ready">
-              <i class="bi bi-check-circle-fill"></i> Ready for Chat
-            </span>
+          <span class="badge-status-detail ready">
+            <i class="bi bi-check-circle-fill"></i> Ready for Chat
+          </span>
           {% elif document.status == 'failed' %}
-            <span class="badge-status-detail failed" title="{{ document.error_message }}">
-              <i class="bi bi-exclamation-circle-fill"></i> Processing Failed
-            </span>
+          <span class="badge-status-detail failed" title="{{ document.error_message }}">
+            <i class="bi bi-exclamation-circle-fill"></i> Processing Failed
+          </span>
           {% else %}
-            <span class="badge-status-detail processing">
-              <span class="spinner-border spinner-border-sm me-1" style="width:14px;height:14px;border-width:2px;"></span> Processing Document...
-            </span>
+          <span class="badge-status-detail processing">
+            <span class="spinner-border spinner-border-sm me-1" style="width:14px;height:14px;border-width:2px;"></span>
+            Processing Document...
+          </span>
           {% endif %}
         </div>
       </div>
 
       <div class="action-buttons-group">
         {% if document.status == 'ready' %}
-          <a href="{% url 'chat:new' %}?doc={{ document.id }}" class="btn-action-lg btn-chat">
-            <i class="bi bi-chat-fill"></i> Chat with Document
-          </a>
+        <a href="{% url 'chat:new' %}?doc={{ document.id }}" class="btn-action-lg btn-chat">
+          <i class="bi bi-chat-fill"></i> Chat with Document
+        </a>
         {% endif %}
-        <a href="{% url 'documents:download' document.id %}" class="btn-action-lg btn-download" title="Download Original PDF">
+        <a href="{% url 'documents:download' document.id %}" class="btn-action-lg btn-download"
+          title="Download Original PDF">
           <i class="bi bi-download"></i> Download
         </a>
-        <button type="button" class="btn-action-lg btn-delete-lg btn-delete-doc"
-                data-id="{{ document.id }}"
-                data-url="{% url 'documents:delete' document.id %}"
-                data-title="{{ document.title }}"
-                data-bs-toggle="modal"
-                data-bs-target="#deleteDocModal">
+        <button type="button" class="btn-action-lg btn-delete-lg btn-delete-doc" data-id="{{ document.id }}"
+          data-url="{% url 'documents:delete' document.id %}" data-title="{{ document.title }}" data-bs-toggle="modal"
+          data-bs-target="#deleteDocModal">
           <i class="bi bi-trash"></i> Delete
         </button>
       </div>
@@ -311,23 +322,26 @@
 
     <!-- Fail info if failed -->
     {% if document.status == 'failed' and document.error_message %}
-      <div class="alert alert-danger d-flex align-items-center gap-2 mb-4" role="alert" style="background:rgba(239, 68, 68, 0.08);border-color:rgba(239, 68, 68, 0.2);color:#fca5a5;">
-        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
-        <div>
-          <strong>Error Details:</strong> {{ document.error_message }}
-        </div>
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-4" role="alert"
+      style="background:rgba(239, 68, 68, 0.08);border-color:rgba(239, 68, 68, 0.2);color:#fca5a5;">
+      <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+      <div>
+        <strong>Error Details:</strong> {{ document.error_message }}
       </div>
+    </div>
     {% endif %}
 
     <!-- Tabs for Summaries -->
     <ul class="nav nav-tabs nav-tabs-custom" id="summaryTabs" role="tablist">
       <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="short-summary-tab" data-bs-toggle="tab" data-bs-target="#short-summary" type="button" role="tab" aria-controls="short-summary" aria-selected="true">
+        <button class="nav-link active" id="short-summary-tab" data-bs-toggle="tab" data-bs-target="#short-summary"
+          type="button" role="tab" aria-controls="short-summary" aria-selected="true">
           Short Summary
         </button>
       </li>
       <li class="nav-item" role="presentation">
-        <button class="nav-link" id="detailed-summary-tab" data-bs-toggle="tab" data-bs-target="#detailed-summary" type="button" role="tab" aria-controls="detailed-summary" aria-selected="false">
+        <button class="nav-link" id="detailed-summary-tab" data-bs-toggle="tab" data-bs-target="#detailed-summary"
+          type="button" role="tab" aria-controls="detailed-summary" aria-selected="false">
           Detailed Summary
         </button>
       </li>
@@ -337,40 +351,60 @@
     <div class="tab-content" id="summaryTabContent">
       <!-- Short Summary -->
       <div class="tab-pane fade show active" id="short-summary" role="tabpanel" aria-labelledby="short-summary-tab">
-        <div class="summary-container">
+        <div class="summary-container" id="short-summary-container">
           {% if document.status == 'ready' %}
-            <div class="summary-markdown">
-              {{ document.summary_short|markdown_to_html }}
-            </div>
-          {% elif document.status == 'failed' %}
-            <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Summaries are unavailable because document processing failed.</p>
-          {% else %}
-            <div class="text-center py-5">
-              <div class="spinner-border text-primary mb-3" role="status">
-                <span class="visually-hidden">Loading...</span>
+            {% if document.summary_short %}
+              <div class="summary-markdown">
+                {{ document.summary_short|markdown_to_html }}
               </div>
-              <p class="text-muted">Generating summary. This will take a moment...</p>
+            {% else %}
+              <div class="text-center py-5" id="generate-short-wrapper">
+                <p class="text-muted mb-3">No short summary has been generated yet.</p>
+                <button type="button" class="btn btn-primary btn-generate-summary" data-type="short" data-doc-id="{{ document.id }}">
+                  <i class="bi bi-magic me-1"></i> Generate Short Summary
+                </button>
+              </div>
+            {% endif %}
+          {% elif document.status == 'failed' %}
+          <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Summaries are unavailable because document
+            processing failed.</p>
+          {% else %}
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary mb-3" role="status">
+              <span class="visually-hidden">Loading...</span>
             </div>
+            <p class="text-muted">Document is processing. Please wait...</p>
+          </div>
           {% endif %}
         </div>
       </div>
 
       <!-- Detailed Summary -->
       <div class="tab-pane fade" id="detailed-summary" role="tabpanel" aria-labelledby="detailed-summary-tab">
-        <div class="summary-container">
+        <div class="summary-container" id="detailed-summary-container">
           {% if document.status == 'ready' %}
-            <div class="summary-markdown">
-              {{ document.summary_long|markdown_to_html }}
-            </div>
-          {% elif document.status == 'failed' %}
-            <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Summaries are unavailable because document processing failed.</p>
-          {% else %}
-            <div class="text-center py-5">
-              <div class="spinner-border text-primary mb-3" role="status">
-                <span class="visually-hidden">Loading...</span>
+            {% if document.summary_long %}
+              <div class="summary-markdown">
+                {{ document.summary_long|markdown_to_html }}
               </div>
-              <p class="text-muted">Generating detailed summary. Please wait...</p>
+            {% else %}
+              <div class="text-center py-5" id="generate-detailed-wrapper">
+                <p class="text-muted mb-3">No detailed summary has been generated yet.</p>
+                <button type="button" class="btn btn-primary btn-generate-summary" data-type="detailed" data-doc-id="{{ document.id }}">
+                  <i class="bi bi-magic me-1"></i> Generate Detailed Summary
+                </button>
+              </div>
+            {% endif %}
+          {% elif document.status == 'failed' %}
+          <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Summaries are unavailable because document
+            processing failed.</p>
+          {% else %}
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary mb-3" role="status">
+              <span class="visually-hidden">Loading...</span>
             </div>
+            <p class="text-muted">Document is processing. Please wait...</p>
+          </div>
           {% endif %}
         </div>
       </div>
@@ -382,7 +416,7 @@
 
 {% block extra_js %}
 <script>
-  $(function() {
+  $(function  () {
     // Delete Document logic (uses bootstrap modal confirmation)
     var deleteDocModal = document.getElementById('deleteDocModal');
     if (deleteDocModal) {
@@ -438,6 +472,73 @@
           });
         });
       });
+    }
+
+    // Generate Summary logic
+    $('.btn-generate-summary').on('click', function() {
+      const btn = $(this);
+      const summaryType = btn.data('type');
+      const docId = btn.data('doc-id');
+      const wrapper = $('#generate-' + summaryType + '-wrapper');
+      const container = $('#' + summaryType + '-summary-container');
+      
+      // Show loading
+      wrapper.html(`
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted">Generating ${summaryType} summary. This may take a few moments...</p>
+        </div>
+      `);
+      
+      // Trigger generation
+      $.ajax({
+        url: `/documents/${docId}/generate-summary/`,
+        type: 'POST',
+        data: {
+          'type': summaryType
+        },
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        success: function(res) {
+          if (res.success) {
+            pollSummaryStatus(docId, summaryType, container);
+          } else {
+            wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Failed to start generation: ${res.error}</p>`);
+          }
+        },
+        error: function(err) {
+          wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Error starting generation.</p>`);
+        }
+      });
+    });
+
+    function pollSummaryStatus(docId, summaryType, container) {
+      const pollInterval = setInterval(() => {
+        $.ajax({
+          url: `/documents/${docId}/summary-status/`,
+          type: 'GET',
+          data: {
+            'type': summaryType
+          },
+          success: function(res) {
+            if (res.success && res.content) {
+              clearInterval(pollInterval);
+              container.html(`<div class="summary-markdown">${res.content}</div>`);
+            } else if (!res.success) {
+              clearInterval(pollInterval);
+              container.html(`<p class="text-danger py-4"><i class="bi bi-exclamation-triangle-fill"></i> ${res.error}</p>`);
+            }
+            // If processing, do nothing and wait for next interval
+          },
+          error: function() {
+            clearInterval(pollInterval);
+            container.html(`<p class="text-danger py-4"><i class="bi bi-exclamation-triangle-fill"></i> Error checking status.</p>`);
+          }
+        });
+      }, 3000);
     }
   });
 </script>

@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.conf import settings
 from documents.models import Document
 from documents.services.pdf_processor import extract_and_chunk_pdf
-from documents.services.vector_store import create_faiss_index
+from documents.services.vector_store import create_vector_index
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
@@ -31,57 +31,10 @@ def process_uploaded_document(document_id):
         logger.info(f"Extracting and chunking document '{doc.title}'...")
         langchain_chunks = extract_and_chunk_pdf(doc.file.path, doc.title)
         
-        # Step 2: Build FAISS index (saves text + vectors locally on disk)
-        logger.info(f"Creating FAISS index for document '{doc.title}'...")
-        create_faiss_index(doc.id, langchain_chunks)
+        # Step 2: Build Chroma index (saves text + vectors locally on disk)
+        logger.info(f"Creating Chroma index for document '{doc.title}'...")
+        create_vector_index(doc.id, doc.user_id, langchain_chunks)
         
-        # Step 3: Generate summaries using LangChain ChatOpenAI
-        logger.info(f"Generating summaries for document '{doc.title}'...")
-        
-        # Compile content for summarization (limit to prevent token limits)
-        full_text = "\n\n".join([chunk.page_content for chunk in langchain_chunks])
-        max_chars = 100000  # ~25k tokens
-        text_for_summary = full_text[:max_chars]
-        
-        # Setup OpenAI LLM client
-        api_key = getattr(settings, 'OPENAI_API_KEY', None)
-        llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            api_key=api_key,
-            temperature=0.2
-        )
-        
-        # Short Summary
-        try:
-            short_summary_resp = llm.invoke([
-                SystemMessage(content="You are a professional document analysis assistant."),
-                HumanMessage(content=(
-                    "Please read the following text extracted from a PDF and generate a concise summary "
-                    "in 3-4 bullet points (maximum 120 words). Focus only on key takeaways:\n\n"
-                    f"{text_for_summary}"
-                ))
-            ])
-            doc.summary_short = short_summary_resp.content.strip()
-        except Exception as se:
-            logger.error(f"Failed to generate short summary for document {doc.id}: {str(se)}")
-            doc.summary_short = "Failed to generate short summary."
-
-        # Detailed Summary
-        try:
-            long_summary_resp = llm.invoke([
-                SystemMessage(content="You are a professional document analysis assistant."),
-                HumanMessage(content=(
-                    "Please read the following text extracted from a PDF and generate a detailed, "
-                    "structured summary in Markdown format. Include major themes, key findings, "
-                    "and any important conclusions. Limit the response to 400 words:\n\n"
-                    f"{text_for_summary}"
-                ))
-            ])
-            doc.summary_long = long_summary_resp.content.strip()
-        except Exception as le:
-            logger.error(f"Failed to generate long summary for document {doc.id}: {str(le)}")
-            doc.summary_long = "Failed to generate detailed summary."
-            
         doc.status = 'ready'
         doc.processed_at = timezone.now()
         doc.save()
@@ -92,3 +45,63 @@ def process_uploaded_document(document_id):
         doc.status = 'failed'
         doc.error_message = str(e)
         doc.save()
+
+def generate_summary_task(document_id, summary_type):
+    """
+    Background worker task to generate a short or detailed summary for a document.
+    """
+    try:
+        doc = Document.objects.get(id=document_id)
+    except Document.DoesNotExist:
+        logger.error(f"Document with ID {document_id} does not exist.")
+        return
+
+    try:
+        logger.info(f"Extracting text for document '{doc.title}' to generate {summary_type} summary...")
+        langchain_chunks = extract_and_chunk_pdf(doc.file.path, doc.title)
+        
+        full_text = "\n\n".join([chunk.page_content for chunk in langchain_chunks])
+        max_chars = 100000  # ~25k tokens
+        text_for_summary = full_text[:max_chars]
+        
+        api_key = getattr(settings, 'OPENAI_API_KEY', None)
+        llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            api_key=api_key,
+            temperature=0.2
+        )
+        
+        if summary_type == 'short':
+            resp = llm.invoke([
+                SystemMessage(content="You are a professional document analysis assistant."),
+                HumanMessage(content=(
+                    "Please read the following text extracted from a PDF and generate a concise summary "
+                    "in 3-4 bullet points (maximum 120 words). Focus only on key takeaways:\n\n"
+                    f"{text_for_summary}"
+                ))
+            ])
+            doc.summary_short = resp.content.strip()
+            
+        elif summary_type == 'detailed':
+            resp = llm.invoke([
+                SystemMessage(content="You are a professional document analysis assistant."),
+                HumanMessage(content=(
+                    "Please read the following text extracted from a PDF and generate a detailed, "
+                    "structured summary in Markdown format. Include major themes, key findings, "
+                    "and any important conclusions. Limit the response to 400 words:\n\n"
+                    f"{text_for_summary}"
+                ))
+            ])
+            doc.summary_long = resp.content.strip()
+            
+        doc.save()
+        logger.info(f"Successfully generated {summary_type} summary for document '{doc.title}'.")
+        
+    except Exception as e:
+        logger.error(f"Failed to generate {summary_type} summary for document {doc.id}: {str(e)}")
+        if summary_type == 'short':
+            doc.summary_short = "Failed to generate short summary."
+        else:
+            doc.summary_long = "Failed to generate detailed summary."
+        doc.save()
+

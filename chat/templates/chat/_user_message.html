@@ -7,12 +7,8 @@
   </div>
 </div>
 
-<!-- ── AI Response Placeholder — auto-triggers Phase 2 via HTMX ── -->
-<div class="message-row assistant" id="ai-placeholder-{{ user_msg.id }}"
-     hx-get="{{ ai_response_url }}"
-     hx-trigger="load"
-     hx-swap="outerHTML"
-     hx-target="this">
+<!-- ── AI Response Placeholder — JS streaming replaces HTMX trigger ── -->
+<div class="message-row assistant" id="ai-placeholder-{{ user_msg.id }}">
   <div class="chat-bubble ai-thinking-bubble">
     <div class="typing-indicator-dots">
       <span class="dot"></span>
@@ -22,3 +18,11 @@
     <span class="ai-thinking-label">AI is thinking…</span>
   </div>
 </div>
+
+<script>
+  (function() {
+    if (typeof window.startStreaming === 'function') {
+      window.startStreaming("{{ stream_url }}", "ai-placeholder-{{ user_msg.id }}");
+    }
+  })();
+</script>

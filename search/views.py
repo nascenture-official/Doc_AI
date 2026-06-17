@@ -23,9 +23,8 @@ class SearchView(LoginRequiredMixin, View):
         ready_docs = Document.objects.filter(user=request.user, status='ready')
 
         if query and ready_docs.exists():
-            doc_ids = [doc.id for doc in ready_docs]
-            # Perform keyword search across FAISS indices
-            all_results = keyword_search_in_vectors(doc_ids, query)
+            # Perform keyword search across FAISS indices by user_id directly
+            all_results = keyword_search_in_vectors(query, user_id=request.user.id)
 
         total_count = len(all_results)
         paginator = Paginator(all_results, SEARCH_PAGE_SIZE)

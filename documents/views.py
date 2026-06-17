@@ -12,7 +12,7 @@ from django_q.tasks import async_task
 
 from .models import Document
 from .services.pdf_helper import get_pdf_page_count
-from .services.vector_store import delete_faiss_index
+from .services.vector_store import delete_vector_index
 
 DOCUMENTS_PAGE_SIZE = 12
 
@@ -168,8 +168,8 @@ class DocumentDeleteView(LoginRequiredMixin, View):
     def post(self, request, pk):
         doc = get_object_or_404(Document, pk=pk, user=request.user)
         try:
-            # Delete FAISS vector files from disk
-            delete_faiss_index(doc.id)
+            # Delete vectors from Chroma DB
+            delete_vector_index(doc.id)
             # Delete file on disk
             if doc.file:
                 doc.file.delete(save=False)
@@ -193,3 +193,54 @@ class DocumentDownloadView(LoginRequiredMixin, View):
         except Exception:
             messages.error(request, "Could not retrieve the file.")
             return redirect('documents:list')
+
+class GenerateSummaryAjaxView(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to trigger on-demand summary generation.
+    """
+    login_url = "/accounts/login/"
+
+    def post(self, request, pk):
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        summary_type = request.POST.get('type')
+        
+        if summary_type not in ['short', 'detailed']:
+            return JsonResponse({"success": False, "error": "Invalid summary type."}, status=400)
+            
+        try:
+            async_task(
+                'documents.tasks.generate_summary_task',
+                doc.id,
+                summary_type,
+                task_name=f"generate_{summary_type}_summary_{doc.id}"
+            )
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+class SummaryStatusAjaxView(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to poll for summary generation status.
+    """
+    login_url = "/accounts/login/"
+
+    def get(self, request, pk):
+        from documents.templatetags.markdown_extras import markdown_to_html
+        
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        summary_type = request.GET.get('type')
+        
+        if summary_type == 'short':
+            content = doc.summary_short
+        elif summary_type == 'detailed':
+            content = doc.summary_long
+        else:
+            return JsonResponse({"success": False, "error": "Invalid summary type."}, status=400)
+            
+        if content:
+            # Check if it failed
+            if content.startswith("Failed to generate"):
+                return JsonResponse({"success": False, "error": content})
+            return JsonResponse({"success": True, "content": markdown_to_html(content)})
+        else:
+            return JsonResponse({"success": True, "status": "processing"})

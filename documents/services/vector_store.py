@@ -1,108 +1,118 @@
 import os
 import logging
 from django.conf import settings
-from langchain_community.vectorstores import FAISS
+from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
+from langchain_classic.embeddings import CacheBackedEmbeddings
+from langchain_classic.storage import LocalFileStore
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 def get_embeddings_instance():
     """
     Returns an instance of OpenAIEmbeddings using settings configured in Django settings.
+    Wrapped in CacheBackedEmbeddings for caching.
     """
-    api_key = getattr(settings, 'OPENAI_API_KEY', None)
-    return OpenAIEmbeddings(
-        model="text-embedding-3-small",
-        api_key=api_key
+    base_embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    
+    cache_dir = os.path.join(settings.BASE_DIR, "embedding_cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    
+    embedding_file_store = LocalFileStore(cache_dir)
+    
+    cached_embeddings = CacheBackedEmbeddings.from_bytes_store(
+        base_embeddings,
+        embedding_file_store,
+        namespace=base_embeddings.model,
+        query_embedding_cache=True,
+        key_encoder="blake2b",
+    )
+    
+    return cached_embeddings
+
+def get_vector_store():
+    """
+    Returns the singleton centralized Chroma vector store instance.
+    """
+    persist_dir = os.path.join(settings.BASE_DIR, "chroma_db")
+    embeddings = get_embeddings_instance()
+    
+    return Chroma(
+        collection_name="documents_collection",
+        embedding_function=embeddings,
+        persist_directory=persist_dir
     )
 
-def create_faiss_index(document_id, langchain_documents):
+def create_vector_index(document_id, user_id, langchain_documents):
     """
-    Generates embeddings for a list of LangChain documents and creates a local FAISS index.
-    Saves the index files to vector_store/<document_id>/.
+    Generates embeddings for a list of LangChain documents and adds them to the centralized Chroma DB.
     """
     try:
-        embeddings = get_embeddings_instance()
-        db = FAISS.from_documents(langchain_documents, embeddings)
-        
-        # Define saving path
-        vector_store_dir = os.path.join(settings.BASE_DIR, "vector_store", str(document_id))
-        os.makedirs(vector_store_dir, exist_ok=True)
-        
-        db.save_local(vector_store_dir)
-        logger.info(f"Successfully created and saved FAISS index for document {document_id} at {vector_store_dir}")
+        # Inject document_id and user_id into metadata for all documents
+        for doc in langchain_documents:
+            doc.metadata["document_id"] = str(document_id)
+            doc.metadata["user_id"] = str(user_id)
+            
+        db = get_vector_store()
+        db.add_documents(langchain_documents)
+        logger.info(f"Successfully added document {document_id} to centralized Chroma DB")
         return True
     except Exception as e:
-        logger.error(f"Failed to create FAISS index for document {document_id}: {str(e)}")
+        logger.error(f"Failed to add document {document_id} to Chroma DB: {str(e)}")
         raise e
 
-def load_faiss_index(document_id):
+def delete_vector_index(document_id):
     """
-    Loads a single FAISS vector index from disk.
+    Deletes documents matching the given document_id from the centralized Chroma DB.
     """
-    embeddings = get_embeddings_instance()
-    vector_store_dir = os.path.join(settings.BASE_DIR, "vector_store", str(document_id))
-    
-    if not os.path.exists(vector_store_dir):
-        raise FileNotFoundError(f"Vector store directory for document {document_id} does not exist at {vector_store_dir}")
-        
-    db = FAISS.load_local(vector_store_dir, embeddings, allow_dangerous_deserialization=True)
-    return db
+    try:
+        db = get_vector_store()
+        # Use underlying Chroma collection to delete by metadata filter
+        db._collection.delete(where={"document_id": str(document_id)})
+        logger.info(f"Successfully deleted vectors for document {document_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to delete vectors for document {document_id}: {str(e)}")
+        return False
 
-def load_multiple_indexes(document_ids):
-    """
-    Loads and merges FAISS vector indexes for multiple document IDs.
-    Returns the merged FAISS index, or None if no indexes could be loaded.
-    """
-    merged_db = None
-    for doc_id in document_ids:
-        try:
-            db = load_faiss_index(doc_id)
-            if merged_db is None:
-                merged_db = db
-            else:
-                merged_db.merge_from(db)
-        except Exception as e:
-            logger.warning(f"Failed to load FAISS index for document {doc_id}: {str(e)}")
-            continue
-    return merged_db
-
-def delete_faiss_index(document_id):
-    """
-    Deletes the FAISS vector index directory from disk for a given document.
-    """
-    import shutil
-    vector_store_dir = os.path.join(settings.BASE_DIR, "vector_store", str(document_id))
-    if os.path.exists(vector_store_dir):
-        try:
-            shutil.rmtree(vector_store_dir)
-            logger.info(f"Successfully deleted vector store directory: {vector_store_dir}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to delete vector store directory {vector_store_dir}: {str(e)}")
-            return False
-    return False
-
-def keyword_search_in_vectors(document_ids, query):
+def keyword_search_in_vectors(query,user_id=None):
     """
     Performs a simple keyword/phrase search directly in the raw text documents stored
-    inside the serialized FAISS indices, without any AI/LLM API calls.
+    inside the Chroma collection.
     Returns list of dicts: [{'text': str, 'page': int, 'source': str}]
     """
-    db = load_multiple_indexes(document_ids)
-    if not db:
+    db = get_vector_store()
+    
+    where_clause = {}
+    if user_id:
+        where_clause["user_id"] = str(user_id)
+    else:
         return []
     
+    # Get raw documents from the collection matching the filter
+    try:
+        results = db._collection.get(
+            where=where_clause,
+            where_document={"$contains": query},
+            include=["documents", "metadatas"]
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch documents for keyword search: {str(e)}")
+        return []
+        
     matches = []
-    query_lower = query.lower()
     
-    # Iterate through all documents stored in the index docstore
-    for doc in db.docstore._dict.values():
-        if query_lower in doc.page_content.lower():
-            matches.append({
-                "text": doc.page_content,
-                "page": doc.metadata.get("page", 1),
-                "source": doc.metadata.get("source", "Unknown")
-            })
+    documents = results.get("documents", [])
+    metadatas = results.get("metadatas", [])
+    
+    for text, meta in zip(documents, metadatas):
+        matches.append({
+            "text": text,
+            "page": meta.get("page", 1) if meta else 1,
+            "source": meta.get("source", "Unknown") if meta else "Unknown"
+        })
             
     return matches
