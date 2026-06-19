@@ -17,6 +17,7 @@ def markdown_to_html(value):
     return mark_safe(html_content)
 
 import re
+import json as _json
 from django.utils.html import escape
 
 @register.filter(name='highlight_search')
@@ -35,4 +36,14 @@ def highlight_search(text, search_term):
     pattern = re.compile(re.escape(escaped_term), re.IGNORECASE)
     highlighted = pattern.sub(lambda m: f"<mark class='highlight-mark'>{m.group(0)}</mark>", escaped_text)
     return mark_safe(highlighted)
+
+
+@register.filter(name='json_encode')
+def json_encode(value):
+    """
+    Safely serialize a Python value to a JSON string for embedding in data-* attributes.
+    Usage: {{ msg.sources|json_encode }}
+    Never use |safe on user-controlled JSON — use this filter instead.
+    """
+    return _json.dumps(value or [])
 

@@ -1,7 +1,11 @@
 {% load markdown_extras %}
 
 <!-- ── User Message Bubble ── -->
-<div class="message-row user" id="user-msg-{{ user_msg.id }}">
+<div class="message-row user" id="user-msg-{{ user_msg.id }}"
+     data-role="user"
+     data-content="{{ user_msg.content|escapejs }}"
+     data-sources="[]"
+     data-timestamp="{{ user_msg.created_at|date:'c' }}">
   <div class="chat-bubble">
     <div class="message-text">{{ user_msg.content|linebreaksbr }}</div>
   </div>

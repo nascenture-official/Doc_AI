@@ -11,7 +11,6 @@ from django.views.decorators.csrf import csrf_protect
 from django_q.tasks import async_task
 
 from .models import Document
-from .services.pdf_helper import get_pdf_page_count
 from .services.vector_store import delete_vector_index
 
 DOCUMENTS_PAGE_SIZE = 12
@@ -73,33 +72,6 @@ class DocumentUploadAjaxView(LoginRequiredMixin, View):
             status='uploading'
         )
         doc.save()
-
-        try:
-            # First read the page count synchronously using quick pypdf helper
-            pages = get_pdf_page_count(doc.file.path)
-            if pages > 0:
-                doc.page_count = pages
-                doc.save()
-            else:
-                doc.status = 'failed'
-                doc.error_message = "Invalid or corrupted PDF file."
-                doc.save()
-                return JsonResponse({
-                    "success": False,
-                    "error": doc.error_message,
-                    "id": doc.id,
-                    "status": doc.status
-                }, status=422)
-        except Exception as e:
-            doc.status = 'failed'
-            doc.error_message = f"Failed to parse page count: {str(e)}"
-            doc.save()
-            return JsonResponse({
-                "success": False,
-                "error": doc.error_message,
-                "id": doc.id,
-                "status": doc.status
-            }, status=422)
 
         # 4. Enqueue background RAG processing task via Django Q
         try:

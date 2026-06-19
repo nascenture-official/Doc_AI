@@ -206,8 +206,15 @@
   }
 
   @keyframes bubbleFadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   /* AI thinking / loading bubble */
@@ -244,13 +251,31 @@
     opacity: 0.7;
   }
 
-  .dot:nth-child(1) { animation-delay: 0s; }
-  .dot:nth-child(2) { animation-delay: 0.2s; }
-  .dot:nth-child(3) { animation-delay: 0.4s; }
+  .dot:nth-child(1) {
+    animation-delay: 0s;
+  }
+
+  .dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .dot:nth-child(3) {
+    animation-delay: 0.4s;
+  }
 
   @keyframes dotPulse {
-    0%, 60%, 100% { transform: scale(0.7); opacity: 0.4; }
-    30% { transform: scale(1); opacity: 1; }
+
+    0%,
+    60%,
+    100% {
+      transform: scale(0.7);
+      opacity: 0.4;
+    }
+
+    30% {
+      transform: scale(1);
+      opacity: 1;
+    }
   }
 
   /* Sources details block */
@@ -381,6 +406,7 @@
       z-index: 100;
       transition: left var(--transition);
     }
+
     .chat-sidebar.open {
       left: 0;
     }
@@ -403,6 +429,33 @@
     padding: 10px 0;
     color: var(--text-muted);
   }
+
+  /* Export dropdown */
+  #export-dropdown .dropdown-menu {
+    background: var(--bg-toast);
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    min-width: 195px;
+    border-radius: var(--radius-sm);
+    padding: 6px;
+  }
+
+  #export-dropdown .dropdown-item {
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    border-radius: 6px;
+    padding: 9px 14px;
+    transition: background var(--transition), color var(--transition);
+  }
+
+  #export-dropdown .dropdown-item:hover {
+    background: rgba(99, 102, 241, 0.08);
+    color: var(--text-primary);
+  }
+
+  #export-dropdown .dropdown-toggle::after {
+    margin-left: 6px;
+  }
 </style>
 {% endblock %}
 
@@ -419,37 +472,33 @@
 
     <div class="chat-list" id="chat-list">
       {% for convo in conversations %}
-        <div class="chat-list-item-wrapper {% if active_convo_id == convo.id %}active{% endif %}"
-             id="convo-item-{{ convo.id }}">
-          <a href="{% url 'chat:detail' convo.id %}" class="chat-list-item">
-            <i class="bi bi-chat-left-text" style="flex-shrink:0;font-size:13px;"></i>
-            <span class="chat-item-title">{{ convo.title|default:"New Conversation" }}</span>
-          </a>
-          <!-- Delete button triggers modal instead of hx-confirm -->
-          <button class="chat-item-delete"
-                  title="Delete conversation"
-                  data-bs-toggle="modal"
-                  data-bs-target="#deleteChatModal"
-                  data-convo-id="{{ convo.id }}"
-                  data-convo-title="{{ convo.title|default:'New Conversation'|escapejs }}">
-            <i class="bi bi-trash" style="font-size: 13px;"></i>
-          </button>
-        </div>
+      <div class="chat-list-item-wrapper {% if active_convo_id == convo.id %}active{% endif %}"
+        id="convo-item-{{ convo.id }}">
+        <a href="{% url 'chat:detail' convo.id %}" class="chat-list-item">
+          <i class="bi bi-chat-left-text" style="flex-shrink:0;font-size:13px;"></i>
+          <span class="chat-item-title">{{ convo.title|default:"New Conversation" }}</span>
+        </a>
+        <!-- Delete button triggers modal instead of hx-confirm -->
+        <button class="chat-item-delete" title="Delete conversation" data-bs-toggle="modal"
+          data-bs-target="#deleteChatModal" data-convo-id="{{ convo.id }}"
+          data-convo-title="{{ convo.title|default:'New Conversation'|escapejs }}">
+          <i class="bi bi-trash" style="font-size: 13px;"></i>
+        </button>
+      </div>
       {% empty %}
-        <div class="text-center py-5 text-muted" style="font-size: 13px;">
-          No conversations yet.
-        </div>
+      <div class="text-center py-5 text-muted" style="font-size: 13px;">
+        No conversations yet.
+      </div>
       {% endfor %}
 
       {# Sidebar infinite scroll — loads next 15 conversations when sentinel scrolls into view #}
       {% if has_more_conversations %}
       <div id="sidebar-load-more-{{ conversations|length }}"
-           hx-get="{% url 'chat:sidebar_conversations' %}?offset={{ conversations|length }}&active={{ active_convo_id }}"
-           hx-trigger="intersect once"
-           hx-swap="outerHTML"
-           hx-target="#sidebar-load-more-{{ conversations|length }}">
+        hx-get="{% url 'chat:sidebar_conversations' %}?offset={{ conversations|length }}&active={{ active_convo_id }}"
+        hx-trigger="intersect once" hx-swap="outerHTML" hx-target="#sidebar-load-more-{{ conversations|length }}">
         <div class="sidebar-loading-more">
-          <span class="spinner-border" style="width:14px;height:14px;border-width:2px;color:var(--primary);" role="status" aria-hidden="true"></span>
+          <span class="spinner-border" style="width:14px;height:14px;border-width:2px;color:var(--primary);"
+            role="status" aria-hidden="true"></span>
         </div>
       </div>
       {% endif %}
@@ -464,16 +513,19 @@
           <h5 class="modal-title fw-bold" id="deleteChatModalLabel" style="color:var(--text-primary);">
             <i class="bi bi-exclamation-triangle-fill me-2" style="color:var(--danger);"></i>Delete Conversation
           </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="deleteChatModalClose"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+            id="deleteChatModalClose"></button>
         </div>
         <div class="modal-body" style="color:var(--text-secondary); padding-top:12px;">
-          Are you sure you want to delete "<span id="deleteModalConvoTitle" class="fw-bold" style="color:var(--text-primary);"></span>"?
+          Are you sure you want to delete "<span id="deleteModalConvoTitle" class="fw-bold"
+            style="color:var(--text-primary);"></span>"?
           <div class="mt-2" style="font-size:12.5px; color:var(--text-muted);">
             <i class="bi bi-info-circle me-1"></i>This action is permanent and cannot be undone.
           </div>
         </div>
         <div class="modal-footer border-top-0 pt-0">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="deleteChatCancelBtn">Cancel</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"
+            id="deleteChatCancelBtn">Cancel</button>
           <button type="button" class="btn btn-danger" id="confirmDeleteChatBtn">
             <!-- Normal state -->
             <span id="deleteBtnText">
@@ -482,7 +534,7 @@
             <!-- Loading state (hidden by default) -->
             <span id="deleteBtnLoader" style="display:none; align-items:center; gap:8px;">
               <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"
-                    style="width:14px; height:14px; border-width:2px;"></span>
+                style="width:14px; height:14px; border-width:2px;"></span>
               Deleting…
             </span>
           </button>
@@ -501,9 +553,9 @@
             <i class="bi bi-link-45deg"></i> Grounded PDFs:
           </span>
           {% for doc in conversation.documents.all %}
-            <span class="linked-doc-tag" title="{{ doc.title }}">
-              <i class="bi bi-file-earmark-pdf text-danger me-1"></i>{{ doc.title }}
-            </span>
+          <span class="linked-doc-tag" title="{{ doc.title }}">
+            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>{{ doc.title }}
+          </span>
           {% endfor %}
         </div>
       </div>
@@ -511,6 +563,31 @@
       <button class="btn btn-outline-custom p-2 d-md-none" id="mobile-chat-sidebar-toggle">
         <i class="bi bi-chat-left-dots"></i>
       </button>
+
+      <!-- Export Dropdown -->
+      <div class="dropdown" id="export-dropdown">
+        <button class="btn btn-outline-custom dropdown-toggle py-2 px-3" type="button" data-bs-toggle="dropdown"
+          aria-expanded="false" id="export-btn" title="Export this conversation">
+          <i class="bi bi-download me-1"></i> Export
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li>
+            <a class="dropdown-item" href="#" id="export-pdf-btn">
+              <i class="bi bi-file-earmark-pdf text-danger me-2"></i>Export as PDF
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item" href="#" id="export-md-btn">
+              <i class="bi bi-markdown me-2"></i>Export as Markdown
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item" href="#" id="export-txt-btn">
+              <i class="bi bi-file-earmark-text me-2"></i>Export as TXT
+            </a>
+          </li>
+        </ul>
+      </div>
     </div>
 
     <!-- Scrollable Messages Container -->
@@ -518,76 +595,73 @@
 
       {# Scroll-UP sentinel — loads older messages when user scrolls to the top #}
       {% if has_older %}
-      <div id="load-older-sentinel"
-           hx-get="{% url 'chat:message_history' conversation.id %}?before={{ oldest_id }}"
-           hx-trigger="intersect once"
-           hx-swap="outerHTML"
-           hx-target="#load-older-sentinel">
+      <div id="load-older-sentinel" hx-get="{% url 'chat:message_history' conversation.id %}?before={{ oldest_id }}"
+        hx-trigger="intersect once" hx-swap="outerHTML" hx-target="#load-older-sentinel">
         <div class="load-older-indicator">
-          <span class="spinner-border" style="width:14px;height:14px;border-width:2px;color:var(--primary);" role="status" aria-hidden="true"></span>
+          <span class="spinner-border" style="width:14px;height:14px;border-width:2px;color:var(--primary);"
+            role="status" aria-hidden="true"></span>
           <span>Loading older messages…</span>
         </div>
       </div>
       {% endif %}
 
       {% for msg in chat_messages %}
-        <div class="message-row {% if msg.role == 'user' %}user{% else %}assistant{% endif %}">
-          <div class="chat-bubble">
-            <div class="message-text">
-              {% if msg.role == 'user' %}
-                {{ msg.content|linebreaksbr }}
-              {% else %}
-                {{ msg.content|markdown_to_html }}
-              {% endif %}
-            </div>
-
-            {% if msg.role == 'assistant' and msg.sources %}
-              <div class="message-sources">
-                <span class="sources-toggle" onclick="toggleSources(this)">
-                  <i class="bi bi-journal-text"></i>
-                  Show Citations ({{ msg.sources|length }})
-                  <i class="bi bi-chevron-down ms-1" style="font-size:10px;"></i>
-                </span>
-                <div class="sources-panel">
-                  {% for src in msg.sources %}
-                    <div class="source-item">
-                      <div class="source-item-header">
-                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
-                        {{ src.source }} (Page {{ src.page }})
-                      </div>
-                      <div class="source-item-text">"{{ src.excerpt }}"</div>
-                    </div>
-                  {% endfor %}
-                </div>
-              </div>
+      <div class="message-row {% if msg.role == 'user' %}user{% else %}assistant{% endif %}" data-role="{{ msg.role }}"
+        data-content="{{ msg.content|escapejs }}"
+        data-sources="{% if msg.role == 'assistant' %}{{ msg.sources|json_encode|escapejs }}{% else %}[]{% endif %}"
+        data-timestamp="{{ msg.created_at|date:'c' }}">
+        <div class="chat-bubble">
+          <div class="message-text">
+            {% if msg.role == 'user' %}
+            {{ msg.content|linebreaksbr }}
+            {% else %}
+            {{ msg.content|markdown_to_html }}
             {% endif %}
           </div>
+
+          {% if msg.role == 'assistant' and msg.sources %}
+          <div class="message-sources">
+            <span class="sources-toggle" onclick="toggleSources(this)">
+              <i class="bi bi-journal-text"></i>
+              Show Citations ({{ msg.sources|length }})
+              <i class="bi bi-chevron-down ms-1" style="font-size:10px;"></i>
+            </span>
+            <div class="sources-panel">
+              {% for src in msg.sources %}
+              <div class="source-item">
+                <div class="source-item-header">
+                  <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                  {{ src.source }} (Page {{ src.page }})
+                </div>
+                <div class="source-item-text">"{{ src.excerpt }}"</div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
         </div>
+      </div>
       {% empty %}
-        <div class="text-center py-5 text-muted my-auto" id="chat-empty-state">
-          <i class="bi bi-chat-left-dots" style="font-size:48px;opacity:0.2;display:block;margin-bottom:16px;"></i>
-          <h5 class="fw-bold mb-1" style="color:var(--text-secondary);">Ask a Question</h5>
-          <p style="font-size: 13.5px;max-width:320px;margin:0 auto;opacity:0.8;">
-            Submit a query about the selected PDF documents. The AI will retrieve relevant passages and answer with references.
-          </p>
-        </div>
+      <div class="text-center py-5 text-muted my-auto" id="chat-empty-state">
+        <i class="bi bi-chat-left-dots" style="font-size:48px;opacity:0.2;display:block;margin-bottom:16px;"></i>
+        <h5 class="fw-bold mb-1" style="color:var(--text-secondary);">Ask a Question</h5>
+        <p style="font-size: 13.5px;max-width:320px;margin:0 auto;opacity:0.8;">
+          Submit a query about the selected PDF documents. The AI will retrieve relevant passages and answer with
+          references.
+        </p>
+      </div>
       {% endfor %}
     </div>
 
-  <!-- Input Footer Area -->
+    <!-- Input Footer Area -->
     <div class="chat-input-area">
-      <form id="chat-form"
-            hx-post="{% url 'chat:send' conversation.id %}"
-            hx-target="#chat-messages-container"
-            hx-swap="beforeend">
+      <form id="chat-form" hx-post="{% url 'chat:send' conversation.id %}" hx-target="#chat-messages-container"
+        hx-swap="beforeend">
         {% csrf_token %}
         <div class="input-form-wrapper">
-          <textarea name="content"
-                    id="chat-textarea"
-                    class="chat-textarea"
-                    placeholder="Ask a question about your PDFs… (Enter to send, Shift+Enter for new line)"
-                    rows="1"
-                    required></textarea>
+          <textarea name="content" id="chat-textarea" class="chat-textarea"
+            placeholder="Ask a question about your PDFs… (Enter to send, Shift+Enter for new line)" rows="1"
+            required></textarea>
           <button type="submit" class="chat-send-btn" id="chat-send-btn">
             <span id="send-icon"><i class="bi bi-arrow-up" style="font-size: 18px; font-weight: bold;"></i></span>
           </button>
@@ -618,10 +692,10 @@
 
   (function () {
     var container = document.getElementById('chat-messages-container');
-    var textarea  = document.getElementById('chat-textarea');
-    var form      = document.getElementById('chat-form');
-    var sendBtn   = document.getElementById('chat-send-btn');
-    var sendIcon  = document.getElementById('send-icon');
+    var textarea = document.getElementById('chat-textarea');
+    var form = document.getElementById('chat-form');
+    var sendBtn = document.getElementById('chat-send-btn');
+    var sendIcon = document.getElementById('send-icon');
 
     // Scroll to bottom helper
     function scrollToBottom() {
@@ -668,7 +742,7 @@
     });
 
     // Abort generation if stop button is clicked
-    sendBtn.addEventListener('click', function(e) {
+    sendBtn.addEventListener('click', function (e) {
       if (sendBtn.classList.contains('is-generating')) {
         e.preventDefault();
         var placeholder = document.querySelector('[id^="ai-placeholder-"]');
@@ -678,7 +752,7 @@
           var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
           fetch('/chat/' + convoId + '/abort/' + userMsgId + '/', {
             method: 'POST',
-            headers: {'X-CSRFToken': csrf}
+            headers: { 'X-CSRFToken': csrf }
           });
           if (window._activeStreamReader) {
             window._activeStreamReader.cancel();
@@ -704,7 +778,7 @@
       var emptyState = document.getElementById('chat-empty-state');
       if (emptyState) emptyState.style.display = 'none';
       scrollToBottom();
-      
+
       // Transform button to "Stop"
       sendBtn.classList.add('is-generating');
       sendIcon.innerHTML = '<i class="bi bi-square-fill" style="font-size: 14px;"></i>';
@@ -755,56 +829,56 @@
             headers: { 'X-CSRFToken': csrf, 'HX-Request': 'true' },
             body: new URLSearchParams({ active_id: '{{ active_convo_id }}' })
           })
-          .then(function (resp) {
-            if (resp.ok) {
-              var redirect = resp.headers.get('HX-Redirect');
-              if (redirect) {
-                window.location.href = redirect;
-              } else {
-                var item = document.getElementById('convo-item-' + convoId);
-                if (item) {
-                  item.style.transition = 'opacity 300ms';
-                  item.style.opacity = '0';
-                  setTimeout(function () { item.remove(); }, 300);
+            .then(function (resp) {
+              if (resp.ok) {
+                var redirect = resp.headers.get('HX-Redirect');
+                if (redirect) {
+                  window.location.href = redirect;
+                } else {
+                  var item = document.getElementById('convo-item-' + convoId);
+                  if (item) {
+                    item.style.transition = 'opacity 300ms';
+                    item.style.opacity = '0';
+                    setTimeout(function () { item.remove(); }, 300);
+                  }
+                  var modalInstance = bootstrap.Modal.getInstance(deleteChatModal);
+                  if (modalInstance) modalInstance.hide();
                 }
-                var modalInstance = bootstrap.Modal.getInstance(deleteChatModal);
-                if (modalInstance) modalInstance.hide();
+              } else {
+                _resetDeleteBtn();
               }
-            } else {
+            })
+            .catch(function () {
               _resetDeleteBtn();
-            }
-          })
-          .catch(function () {
-            _resetDeleteBtn();
-          });
+            });
         });
       }
     }
 
     function _showDeleteLoader() {
       var confirmBtn = document.getElementById('confirmDeleteChatBtn');
-      var textEl   = document.getElementById('deleteBtnText');
+      var textEl = document.getElementById('deleteBtnText');
       var loaderEl = document.getElementById('deleteBtnLoader');
       if (!confirmBtn) return;
       confirmBtn.disabled = true;
       document.getElementById('deleteChatCancelBtn').disabled = true;
       document.getElementById('deleteChatModalClose').disabled = true;
-      textEl.style.display   = 'none';
+      textEl.style.display = 'none';
       loaderEl.style.display = 'inline-flex';
     }
 
     function _resetDeleteBtn() {
       var confirmBtn = document.getElementById('confirmDeleteChatBtn');
-      var textEl   = document.getElementById('deleteBtnText');
+      var textEl = document.getElementById('deleteBtnText');
       var loaderEl = document.getElementById('deleteBtnLoader');
       if (!confirmBtn) return;
       confirmBtn.disabled = false;
       document.getElementById('deleteChatCancelBtn').disabled = false;
       document.getElementById('deleteChatModalClose').disabled = false;
-      textEl.style.display   = '';
+      textEl.style.display = '';
       loaderEl.style.display = 'none';
     }
-    
+
     // Expose reset globally
     window.resetChatSendButton = resetSendButton;
 
@@ -812,7 +886,7 @@
     window._activeStreamReader = null;
     var _streamGen = 0;  // increments on every new stream; stale callbacks compare against this
 
-    window.startStreaming = function(streamUrl, placeholderId) {
+    window.startStreaming = function (streamUrl, placeholderId) {
       _streamGen++;
       var myGen = _streamGen;
 
@@ -824,14 +898,14 @@
       var firstToken = true;
 
       fetch(streamUrl)
-        .then(function(resp) {
+        .then(function (resp) {
           if (!resp.ok) throw new Error('HTTP ' + resp.status);
           var reader = resp.body.getReader();
           window._activeStreamReader = reader;
           var decoder = new TextDecoder();
 
           function pump() {
-            return reader.read().then(function(result) {
+            return reader.read().then(function (result) {
               if (_streamGen !== myGen) return;  // aborted and a new stream started
               if (result.done) { window._activeStreamReader = null; return; }
 
@@ -839,17 +913,27 @@
               var events = sseBuffer.split('\n\n');
               sseBuffer = events.pop();
 
-              events.forEach(function(block) {
+              events.forEach(function (block) {
                 if (_streamGen !== myGen) return;
                 var dataLine = '';
-                block.split('\n').forEach(function(line) {
+                block.split('\n').forEach(function (line) {
                   if (line.startsWith('data: ')) dataLine = line.slice(6);
                 });
                 if (!dataLine) return;
                 var d;
-                try { d = JSON.parse(dataLine); } catch(e) { return; }
+                try { d = JSON.parse(dataLine); } catch (e) { return; }
 
-                if (d.type === 'token') {
+                if (d.type === 'title') {
+                  // Update the sidebar item text for this conversation
+                  var sidebarItem = document.querySelector('#convo-item-' + d.convo_id + ' .chat-item-title');
+                  if (sidebarItem) sidebarItem.textContent = d.title;
+                  // Update the browser tab title
+                  document.title = d.title + ' — Assistant';
+                  // Also update the delete modal data attribute so it shows the correct title
+                  var deleteBtn = document.querySelector('#convo-item-' + d.convo_id + ' .chat-item-delete');
+                  if (deleteBtn) deleteBtn.setAttribute('data-convo-title', d.title);
+
+                } else if (d.type === 'token') {
                   if (firstToken) {
                     firstToken = false;
                     var bubble = placeholder.querySelector('.chat-bubble');
@@ -896,7 +980,7 @@
           }
           return pump();
         })
-        .catch(function(err) {
+        .catch(function (err) {
           if (_streamGen !== myGen) return;  // stale — a new stream owns the UI now
           if (err.name !== 'AbortError') console.error('Stream error:', err);
           window._activeStreamReader = null;
@@ -905,6 +989,217 @@
           resetSendButton();
         });
     };
+  })();
+</script>
+
+<!-- jsPDF — loaded from CDN for client-side PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+  (function () {
+    // ── Config ───────────────────────────────────────────────────────────────────
+    const messagesJsonUrl = "{% url 'chat:messages_json' conversation.id %}";
+
+    // ── Helper to generate dynamic export metadata ───────────────────────────────
+    function getExportConfig(data) {
+      const convoTitle = data.title || 'Chat';
+      const now = new Date();
+
+      const safeDate = now.getFullYear() + '-' +
+        String(now.getMonth() + 1).padStart(2, '0') + '-' +
+        String(now.getDate()).padStart(2, '0') + '_' +
+        String(now.getHours()).padStart(2, '0') + '-' +
+        String(now.getMinutes()).padStart(2, '0') + '-' +
+        String(now.getSeconds()).padStart(2, '0');
+
+      const displayDate = now.toLocaleString();
+
+      const slug = convoTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const filename = (slug || 'chat') + '_' + safeDate;
+
+      return { convoTitle, displayDate, filename };
+    }
+
+    // ── Fetch full conversation from the lightweight JSON endpoint ───────────────
+    async function fetchMessages() {
+      const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      const resp = await fetch(messagesJsonUrl, {
+        headers: { 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (!resp.ok) throw new Error('Failed to fetch messages: ' + resp.status);
+      const data = await resp.json();
+      return data;
+    }
+
+    // ── Trigger a native browser file download ───────────────────────────────────
+    function triggerDownload(content, fname, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ── TXT Export ────────────────────────────────────────────────────────────────
+    document.getElementById('export-txt-btn').addEventListener('click', async function (e) {
+      e.preventDefault();
+      try {
+        const data = await fetchMessages();
+        const msgs = data.messages;
+        const { convoTitle, displayDate, filename } = getExportConfig(data);
+
+        let out = convoTitle + '\n' + '='.repeat(convoTitle.length) + '\nExported: ' + displayDate + '\n\n';
+        msgs.forEach(function (m) {
+          out += '[' + m.role.toUpperCase() + ']\n' + m.content + '\n';
+          if (m.sources && m.sources.length) {
+            out += 'Sources:\n';
+            m.sources.forEach(function (s) { out += '  - ' + s.source + ' (Page ' + s.page + ')\n'; });
+          }
+          out += '\n' + '-'.repeat(60) + '\n\n';
+        });
+        triggerDownload(out, filename + '.txt', 'text/plain;charset=utf-8');
+      } catch (err) {
+        console.error('TXT export failed:', err);
+        alert('Export failed. Please try again.');
+      }
+    });
+
+    // ── Markdown Export ───────────────────────────────────────────────────────────
+    document.getElementById('export-md-btn').addEventListener('click', async function (e) {
+      e.preventDefault();
+      try {
+        const data = await fetchMessages();
+        const msgs = data.messages;
+        const { convoTitle, displayDate, filename } = getExportConfig(data);
+
+        let out = '# ' + convoTitle + '\n\n_Exported: ' + displayDate + '_\n\n---\n\n';
+        msgs.forEach(function (m) {
+          if (m.role === 'user') {
+            out += '**User:**\n\n> ' + m.content.replace(/\n/g, '\n> ') + '\n\n';
+          } else {
+            out += '**Assistant:**\n\n' + m.content + '\n\n';
+            if (m.sources && m.sources.length) {
+              out += '<details><summary>Sources (' + m.sources.length + ')</summary>\n\n';
+              m.sources.forEach(function (s) { out += '- **' + s.source + '** — Page ' + s.page + '\n'; });
+              out += '\n</details>\n\n';
+            }
+          }
+          out += '---\n\n';
+        });
+        triggerDownload(out, filename + '.md', 'text/markdown;charset=utf-8');
+      } catch (err) {
+        console.error('Markdown export failed:', err);
+        alert('Export failed. Please try again.');
+      }
+    });
+
+    // ── PDF Export (jsPDF) ────────────────────────────────────────────────────────
+    document.getElementById('export-pdf-btn').addEventListener('click', async function (e) {
+      e.preventDefault();
+      try {
+        var btn = document.getElementById('export-pdf-btn');
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="width:13px;height:13px;border-width:2px;"></span>Generating…';
+        btn.style.pointerEvents = 'none';
+
+        const data = await fetchMessages();
+        const msgs = data.messages;
+        const { convoTitle, displayDate, filename } = getExportConfig(data);
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+        const W = doc.internal.pageSize.getWidth();
+        const H = doc.internal.pageSize.getHeight();
+        const margin = 50;
+        const usableW = W - margin * 2;
+        let y = margin;
+
+        // ── Cover header ────────────────────────────────────────────────────────
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(30, 30, 40);
+        doc.text(convoTitle, margin, y); y += 30;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(130);
+        doc.text('Exported: ' + displayDate, margin, y); y += 24;
+
+        doc.setDrawColor(210);
+        doc.line(margin, y, W - margin, y); y += 22;
+        doc.setTextColor(30);
+
+        // ── Messages ─────────────────────────────────────────────────────────────
+        msgs.forEach(function (m) {
+          // Page break check before each message block
+          if (y > H - margin - 60) { doc.addPage(); y = margin; }
+
+          // Role chip (coloured pill)
+          var roleLabel = m.role === 'user' ? 'User' : 'Assistant';
+          var chipW = m.role === 'user' ? 32 : 52;
+          doc.setFillColor.apply(doc, m.role === 'user' ? [99, 102, 241] : [55, 55, 75]);
+          doc.setTextColor(255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.roundedRect(margin, y - 10, chipW + 14, 15, 3, 3, 'F');
+          doc.text(roleLabel, margin + 7, y); y += 20;
+
+          // Message body — pre-process to handle long unbreakable tokens (URLs, hashes)
+          doc.setTextColor(30);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(11);
+          var safeContent = m.content.replace(/(\S{55})/g, '$1\u200B');
+          var lines = doc.splitTextToSize(safeContent, usableW);
+          lines.forEach(function (line) {
+            if (y > H - margin - 30) { doc.addPage(); y = margin; }
+            doc.text(line, margin, y); y += 16;
+          });
+
+          // Sources block
+          if (m.sources && m.sources.length) {
+            y += 4;
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(130);
+            if (y > H - margin - 30) { doc.addPage(); y = margin; }
+            doc.text('Sources:', margin, y); y += 14;
+            
+            doc.setFont('helvetica', 'normal');
+            m.sources.forEach(function (s) {
+              if (y > H - margin - 30) { doc.addPage(); y = margin; }
+              doc.text('-> ' + s.source + ' - Page ' + s.page, margin + 14, y); y += 14;
+            });
+            doc.setTextColor(30);
+          }
+
+          // Message separator line
+          y += 10;
+          doc.setDrawColor(220);
+          doc.line(margin, y, W - margin, y); y += 16;
+        });
+
+        // ── Page numbers (post-pass over all pages) ──────────────────────────────
+        var pageCount = doc.internal.getNumberOfPages();
+        for (var i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.setFontSize(9);
+          doc.setTextColor(160);
+          doc.text('Page ' + i + ' of ' + pageCount, W - margin, H - 24, { align: 'right' });
+        }
+
+        doc.save(filename + '.pdf');
+      } catch (err) {
+        console.error('PDF export failed:', err);
+        alert('PDF export failed. Please try again.');
+      } finally {
+        var btn = document.getElementById('export-pdf-btn');
+        btn.innerHTML = '<i class="bi bi-file-earmark-pdf text-danger me-2"></i>Export as PDF';
+        btn.style.pointerEvents = '';
+      }
+    });
   })();
 </script>
 {% endblock %}

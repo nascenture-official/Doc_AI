@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
@@ -8,7 +9,7 @@ from django.core.cache import cache
 
 from documents.models import Document
 from .models import Conversation, Message
-from .services.ai_service import generate_chat_response, auto_generate_title, stream_chat_response
+from .services.ai_service import auto_generate_title, stream_chat_response
 
 
 # How many messages to load on initial chat page render
@@ -224,7 +225,6 @@ class SendMessageView(LoginRequiredMixin, View):
         # Return user bubble + pending AI placeholder with a spinner
         response = render(request, 'chat/_user_message.html', {
             'user_msg': user_msg,
-            'ai_response_url': reverse('chat:ai_response', args=[convo.id, user_msg.id]),
             'stream_url': reverse('chat:stream_response', args=[convo.id, user_msg.id]),
         })
         response['HX-Trigger'] = 'clearInput'
@@ -243,13 +243,15 @@ class StreamAIResponseView(LoginRequiredMixin, View):
         convo = get_object_or_404(Conversation, pk=pk, user=request.user)
         user_msg = get_object_or_404(Message, pk=user_msg_id, conversation=convo, role='user')
 
-        # Auto-generate title on first user message
+        # Auto-generate title on first user message and capture it for the stream
+        new_title = None
         if convo.messages.filter(role='user').count() == 1:
-            convo.title = auto_generate_title(user_msg.content)
+            new_title = auto_generate_title(user_msg.content)
+            convo.title = new_title
             convo.save()
 
         def event_stream():
-            yield from stream_chat_response(convo, user_msg.content, user_msg.id)
+            yield from stream_chat_response(convo, user_msg.content, user_msg.id, new_title=new_title)
 
         response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
         response['Cache-Control'] = 'no-cache'
@@ -268,48 +270,7 @@ class AbortGenerationView(LoginRequiredMixin, View):
         return HttpResponse(status=204)
 
 
-class GenerateAIResponseView(LoginRequiredMixin, View):
-    """
-    Phase 2: Auto-triggered by the pending AI placeholder (hx-trigger="load").
-    Runs the RAG pipeline and returns the completed assistant bubble,
-    replacing the spinner placeholder in-place.
-    """
-    login_url = "/accounts/login/"
 
-    def get(self, request, pk, user_msg_id):
-        convo = get_object_or_404(Conversation, pk=pk, user=request.user)
-        user_msg = get_object_or_404(Message, pk=user_msg_id, conversation=convo, role='user')
-
-        # Auto-rename title if it's the first user message (moved to async Phase 2 to prevent blocking UI)
-        is_first_msg = convo.messages.filter(role='user').count() == 1
-        if is_first_msg:
-            convo.title = auto_generate_title(user_msg.content)
-            convo.save()
-
-        # Run RAG pipeline
-        ai_response, sources = generate_chat_response(convo, user_msg.content)
-
-        # Check if the user clicked Stop while we were generating
-        if cache.get(f"abort_msg_{user_msg.id}"):
-            # Delete the abort flag
-            cache.delete(f"abort_msg_{user_msg_id}")
-            # Discard response entirely, do not save to DB, return empty 204
-            return HttpResponse(status=204)
-
-        # Save assistant message
-        assistant_msg = Message.objects.create(
-            conversation=convo,
-            role='assistant',
-            content=ai_response,
-            sources=sources
-        )
-
-        # Touch conversation updated_at
-        convo.save()
-
-        return render(request, 'chat/_assistant_message.html', {
-            'assistant_msg': assistant_msg,
-        })
 
 
 class DeleteConversationView(LoginRequiredMixin, View):
@@ -336,3 +297,26 @@ class DeleteConversationView(LoginRequiredMixin, View):
 
         messages.success(request, "Conversation deleted.")
         return redirect(reverse('chat:new'))
+
+
+class ConversationMessagesJsonView(LoginRequiredMixin, View):
+    """
+    Lightweight JSON endpoint used exclusively by the client-side export feature.
+    Returns all messages for a conversation as JSON — ownership enforced so users
+    can only export their own conversations.
+    GET /chat/<pk>/messages-json/
+    """
+    login_url = "/accounts/login/"
+
+    def get(self, request, pk):
+        convo = get_object_or_404(Conversation, pk=pk, user=request.user)
+        msgs = list(
+            convo.messages.order_by('created_at')
+            .values('role', 'content', 'sources', 'created_at')
+        )
+        # Serialize datetimes to ISO strings (not JSON-serializable by default)
+        for m in msgs:
+            m['created_at'] = m['created_at'].isoformat()
+            # Ensure sources is always a list (never None)
+            m['sources'] = m['sources'] or []
+        return JsonResponse({'messages': msgs, 'title': convo.title or 'Chat'})
