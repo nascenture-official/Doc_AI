@@ -11,6 +11,7 @@ A web application built with Django that allows users to upload PDF files and ha
 - Real-time response streaming via Server-Sent Events (SSE)
 - Abort generation — stop an in-progress AI response mid-stream
 - Smart intent classification — small-talk messages bypass the vector store entirely
+- Export chat conversations in multiple formats (PDF, Markdown, TXT)
 - On-demand AI document summarization (concise and detailed)
 - Keyword search across all documents without LLM involvement
 - Conversation history with infinite-scroll message loading
