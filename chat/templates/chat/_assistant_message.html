@@ -1,7 +1,11 @@
 {% load markdown_extras %}
 
 <!-- ── Assistant Response Bubble ── -->
-<div class="message-row assistant" id="assistant-msg-{{ assistant_msg.id }}">
+<div class="message-row assistant" id="assistant-msg-{{ assistant_msg.id }}"
+     data-role="assistant"
+     data-content="{{ assistant_msg.content|escapejs }}"
+     data-sources="{{ assistant_msg.sources|json_encode|escapejs }}"
+     data-timestamp="{{ assistant_msg.created_at|date:'c' }}">
   <div class="chat-bubble assistant-bubble-animate">
     <div class="message-text ai-response-content">
       {{ assistant_msg.content|markdown_to_html }}

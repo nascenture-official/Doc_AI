@@ -29,12 +29,17 @@ def process_uploaded_document(document_id):
     try:
         # Step 1: Extract and chunk PDF content
         logger.info(f"Extracting and chunking document '{doc.title}'...")
-        langchain_chunks = extract_and_chunk_pdf(doc.file.path, doc.title)
-        
+        langchain_chunks, page_count, pdf_title = extract_and_chunk_pdf(doc.file.path,doc.title)
+
+        # Save page count and resolved PDF title back to the document record
+        doc.page_count = page_count
+        if pdf_title:
+            doc.title = pdf_title
+
         # Step 2: Build Chroma index (saves text + vectors locally on disk)
         logger.info(f"Creating Chroma index for document '{doc.title}'...")
         create_vector_index(doc.id, doc.user_id, langchain_chunks)
-        
+
         doc.status = 'ready'
         doc.processed_at = timezone.now()
         doc.save()
@@ -58,7 +63,7 @@ def generate_summary_task(document_id, summary_type):
 
     try:
         logger.info(f"Extracting text for document '{doc.title}' to generate {summary_type} summary...")
-        langchain_chunks = extract_and_chunk_pdf(doc.file.path, doc.title)
+        langchain_chunks, _, _ = extract_and_chunk_pdf(doc.file.path, doc.title)
         
         full_text = "\n\n".join([chunk.page_content for chunk in langchain_chunks])
         max_chars = 100000  # ~25k tokens

@@ -18,7 +18,11 @@
 
 {# ── Older message bubbles ─────────────────────────────────────────────────── #}
 {% for msg in messages %}
-  <div class="message-row {% if msg.role == 'user' %}user{% else %}assistant{% endif %}">
+  <div class="message-row {% if msg.role == 'user' %}user{% else %}assistant{% endif %}"
+       data-role="{{ msg.role }}"
+       data-content="{{ msg.content|escapejs }}"
+       data-sources="{% if msg.role == 'assistant' %}{{ msg.sources|json_encode|escapejs }}{% else %}[]{% endif %}"
+       data-timestamp="{{ msg.created_at|date:'c' }}">
     <div class="chat-bubble">
       <div class="message-text">
         {% if msg.role == 'user' %}

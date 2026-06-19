@@ -1,5 +1,6 @@
 import os
 import logging
+import chromadb
 from django.conf import settings
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
@@ -10,6 +11,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+CHROMA_HOST = "localhost" 
+CHROMA_PORT = 8001
 
 def get_embeddings_instance():
     """
@@ -34,16 +38,12 @@ def get_embeddings_instance():
     return cached_embeddings
 
 def get_vector_store():
-    """
-    Returns the singleton centralized Chroma vector store instance.
-    """
-    persist_dir = os.path.join(settings.BASE_DIR, "chroma_db")
     embeddings = get_embeddings_instance()
-    
+    chroma_client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)       
     return Chroma(
+        client=chroma_client,
         collection_name="documents_collection",
         embedding_function=embeddings,
-        persist_directory=persist_dir
     )
 
 def create_vector_index(document_id, user_id, langchain_documents):
@@ -79,7 +79,7 @@ def delete_vector_index(document_id):
         return False
 
 def keyword_search_in_vectors(query,user_id=None):
-    """
+    """claud
     Performs a simple keyword/phrase search directly in the raw text documents stored
     inside the Chroma collection.
     Returns list of dicts: [{'text': str, 'page': int, 'source': str}]

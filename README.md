@@ -20,8 +20,8 @@ A web application built with Django that allows users to upload PDF files and ha
 
 ## Requirements
 
-- Python 3.10+
-- Django 5+
+- Python 3.13+
+- Django 6+
 - An OpenAI API key
 - See `requirements.txt` for the complete list of dependencies
 
@@ -86,6 +86,12 @@ DEBUG=True
 
 OPENAI_API_KEY="sk-..."
 
+DB_NAME="your-db-dbname"
+DB_USER="your-db-user"
+DB_PASSWORD="your-db-password"
+DB_HOST="localhost"
+DB_PORT="5432"
+
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
 
@@ -98,6 +104,11 @@ EMAIL_HOST_PASSWORD="your-app-password"
 | `SECRET_KEY` | ✅ | Django's secret key. Keep this private and never commit it to version control. |
 | `DEBUG` | ✅ | Enable or disable Django debug mode. Use `False` in production. |
 | `OPENAI_API_KEY` | ✅ | Powers all LLM calls (`gpt-4o-mini`) and embeddings (`text-embedding-3-small`). |
+| `DB_NAME` | ✅ | PostgreSQL database name. |
+| `DB_USER` | ✅ | PostgreSQL database user. |
+| `DB_PASSWORD` | ✅ | PostgreSQL database password. |
+| `DB_HOST` | ✅ | PostgreSQL host (e.g. `localhost` or a remote host). |
+| `DB_PORT` | ✅ | PostgreSQL port (default: `5432`). |
 | `GOOGLE_CLIENT_ID` | ⚠️ Optional | Google OAuth client ID for social login. |
 | `GOOGLE_CLIENT_SECRET` | ⚠️ Optional | Google OAuth client secret for social login. |
 | `EMAIL_HOST_USER` | ✅ | Gmail address used for sending email verification links. |
@@ -122,13 +133,16 @@ Follow the prompts to create your administrator account.
 
 ## Running the Application
 
-Two processes must run **simultaneously** in separate terminals:
+Three processes must run **simultaneously** in separate terminals:
 
 ```bash
-# Terminal 1 — Django development server
+# Terminal 1 — ChromaDB vector store server (required before starting the app)
+chroma run --path ./chroma_db --port 8001
+
+# Terminal 2 — Django development server
 python manage.py runserver
 
-# Terminal 2 — Background worker (required for PDF processing and summaries)
+# Terminal 3 — Background worker (required for PDF processing and summaries)
 python manage.py qcluster
 ```
 
@@ -171,10 +185,10 @@ doc-chat/
 
 ### PDF → Vector Pipeline
 
-When a PDF is uploaded, a background task extracts its content using `PyMuPDF4LLM` (converting each page to Markdown), splits the text into overlapping chunks using LangChain's `RecursiveCharacterTextSplitter`, and stores the resulting embeddings in a shared ChromaDB collection with per-document and per-user metadata.
+When a PDF is uploaded, a background task extracts its content page-by-page using LangChain's `PyPDFLoader` (in `page` mode), splits the text into overlapping chunks using `RecursiveCharacterTextSplitter`, and stores the resulting embeddings in a ChromaDB collection (served via HTTP on port 8001) with per-document and per-user metadata.
 
 ```
-Upload → Extract (PyMuPDF4LLM) → Chunk (800 chars, 150 overlap) → Embed (text-embedding-3-small) → ChromaDB
+Upload → Extract (PyPDFLoader, page mode) → Chunk (800 chars, 150 overlap) → Embed (text-embedding-3-small) → ChromaDB
 ```
 
 Document status progresses through: `uploading` → `processing` → `ready` / `failed`
@@ -202,11 +216,11 @@ Every chat message goes through two phases:
 - Django 6
 - Python 3.13+
 - Bootstrap 5
-- SQLite
-- ChromaDB
+- PostgreSQL
+- ChromaDB (HTTP server mode)
 - OpenAI (`gpt-4o-mini`, `gpt-5-mini`, `text-embedding-3-small`)
 - LangChain
-- PyMuPDF / pymupdf4llm
+- PyPDF / PyMuPDF / pymupdf4llm
 - HTMX
 - django-allauth
 - django-q2

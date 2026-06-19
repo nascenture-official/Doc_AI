@@ -6,6 +6,7 @@ from django.template.loader import render_to_string
 from documents.services.vector_store import get_vector_store
 from langchain_openai import ChatOpenAI
 from chat.models import Message
+from langchain_classic.retrievers import MultiQueryRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -62,104 +63,13 @@ def _direct_chat_response(user_message_text, conversation, api_key):
         return "Hello! How can I help you with your documents today?"
 
 
-def generate_chat_response(conversation, user_message_text):
-    """
-    Smart RAG pipeline utilizing LangChain and OpenAI:
-    0. Classifies the message — if conversational small-talk, responds directly
-       with NO vector search and NO citations.
-    1. (Document questions only) Loads merged FAISS vector store.
-    2. Performs similarity search to retrieve contextual excerpts.
-    3. Formulates a system prompt forcing strict document-only grounding.
-    4. Invokes ChatOpenAI (gpt-4o-mini) to generate answers.
-    5. Returns (answer_text, sources_list).
-    """
-    documents = conversation.documents.all()
-    if not documents.exists():
-        return "Please connect at least one document to this chat to start asking questions.", []
-
-    api_key = getattr(settings, 'OPENAI_API_KEY', None)
-
-    # ── Step 0: Intent classification ──────────────────────────────────────
-    if _is_conversational(user_message_text, api_key):
-        # Pure small-talk — skip RAG entirely, return empty sources
-        answer_text = _direct_chat_response(user_message_text, conversation, api_key)
-        return answer_text, []
-
-    # ── Step 1: Load vector store ───────────────────────────────────────────
-    doc_ids = [str(doc.id) for doc in documents]
-    try:
-        db = get_vector_store()
-    except Exception as e:
-        logger.error(f"Failed to load vector index for chat: {str(e)}")
-        return "Failed to load document indices. Please make sure the documents are processed successfully.", []
-
-    if not db:
-        return "No text contents found. Please wait for the documents to finish processing.", []
-
-    # Retrieve top 5 matching passages, filtering out low-relevance chunks
-    # FAISS uses L2 distance — lower score = more similar. Threshold 1.0 keeps only relevant results.
-    # Chroma uses Cosine distance or L2 by default, where lower is also better.
-    retrieved_docs = db.similarity_search(
-        query= user_message_text, k=5,filter={"document_id": {"$in": doc_ids}}
-    )
-
-    print("retrieved_docs====", retrieved_docs)
-
-    # ── Step 2: Compile context ─────────────────────────────────────────────
-    context = "\n\n".join([doc.page_content for doc in retrieved_docs])
-
-    # ── Step 4: System prompt ───────────────────────────────────────────────
-    system_prompt = ("""
-        You are an AI assistant that answers questions using ONLY the provided document context.
-
-        Rules:
-        1. Use only the information found in the Context section.
-        2. Do not use your own knowledge or make assumptions.
-        3. If the Context does not contain enough information to answer the Question, do not invent an answer.
-        4. If the Context appears unrelated to the Question, clearly state that the documents do not contain relevant information.
-
-        Context:
-        {context}
-
-        Question:
-        {question}
-        """).format(
-            context=context, question=user_message_text)
-
-    # ── Step 5: Invoke ChatOpenAI ───────────────────────────────────────────
-    try:
-        llm = ChatOpenAI(
-            model="gpt-5-mini",
-            api_key=api_key,
-            temperature=0.5
-        )
-        response = llm.invoke(system_prompt)
-        answer_text = response.content.strip()
-    except Exception as e:
-        logger.error(f"Error calling ChatOpenAI: {str(e)}")
-        return f"Error communicating with OpenAI: {str(e)}", []
-
-    # ── Step 6: Build citations list ────────────────────────────────────────
-    sources = []
-    seen = set()
-    for doc in retrieved_docs:
-        source_name = doc.metadata.get("source", "Unknown")
-        page_num = doc.metadata.get("page_label", 1)
-        print("page_num==",page_num)
-        key = (source_name, page_num)
-        if key not in seen:
-            seen.add(key)
-            sources.append({
-                "source": source_name,
-                "page": page_num,
-                "excerpt": doc.page_content[:100] + "..."
-            })
-
-    return answer_text, sources
-
-def stream_chat_response(conversation, user_message_text, user_msg_id):
+def stream_chat_response(conversation, user_message_text, user_msg_id, new_title=None):
     """Generator yielding SSE-formatted strings for streaming LLM responses."""
     api_key = getattr(settings, 'OPENAI_API_KEY', None)
+
+    # Emit title event immediately so the client can update the sidebar without a refresh
+    if new_title:
+        yield f'data: {json.dumps({"type": "title", "title": new_title, "convo_id": conversation.id})}\n\n'
     documents = conversation.documents.all()
 
     try:
@@ -185,54 +95,92 @@ def stream_chat_response(conversation, user_message_text, user_msg_id):
             system_prompt = (
                 "You are a helpful and friendly document assistant. "
                 "The user has sent a conversational message — respond warmly and naturally. "
-                "Do NOT reference any documents or citations.\n\n"
-                f"CONVERSATION HISTORY:\n{history_str}\nUser: {user_message_text}\nAssistant:"
+                f"User: {user_message_text}\nAssistant:"
             )
             llm_stream = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0.7).stream(system_prompt)
 
         else:
             try:
-                db = get_vector_store()
+                vector_store = get_vector_store()
             except Exception as e:
                 logger.error(f"Vector store error during stream: {e}")
                 yield f'data: {json.dumps({"type": "error", "message": "Failed to load document index."})}\n\n'
                 return
 
-            if not db:
+            if not vector_store:
                 yield f'data: {json.dumps({"type": "error", "message": "No document index found."})}\n\n'
                 return
 
             doc_ids = [str(doc.id) for doc in documents]
-            retrieved_docs = db.similarity_search(
-                query=user_message_text, k=5,
-                filter={"document_id": {"$in": doc_ids}}
+            
+            llm = ChatOpenAI(model="gpt-4o-mini")
+
+            # 1. Base retriever — k=6 so each sub-query fetches enough candidates
+            #    before MultiQueryRetriever deduplicates across all its sub-queries.
+            search_kwargs = {
+                "k": 6,
+                "filter": {"document_id": {"$in": doc_ids}}
+            }
+
+            # 2. Create the base retriever from your vector store
+            base_retriever = vector_store.as_retriever(search_kwargs=search_kwargs)
+
+            # 3. MultiQueryRetriever generates re-worded queries for better recall
+            multiquery_retriever = MultiQueryRetriever.from_llm(
+                retriever=base_retriever,
+                llm=llm,
+                include_original=True
             )
+
+            # 4. Fetch all candidate chunks from MultiQueryRetriever
+            all_retrieved_docs = multiquery_retriever.invoke(input=user_message_text)
+
+            # 5. Re-rank the candidate pool by actual similarity score so the most
+            #    relevant chunk always wins regardless of which sub-query found it.
+            #    MultiQueryRetriever's output order is arbitrary (based on sub-query
+            #    repetition frequency), which can bury high-scoring chunks.
+            if all_retrieved_docs:
+                scored = vector_store.similarity_search_with_score(
+                    user_message_text, k=len(all_retrieved_docs),
+                    filter={"document_id": {"$in": doc_ids}}
+                )
+                # Build a score lookup by page_content (unique enough for reranking)
+                score_map = {doc.page_content: score for doc, score in scored}
+                all_retrieved_docs.sort(key=lambda d: score_map.get(d.page_content, 9999))
+
+            # Cap to top 5 unique chunks (MultiQueryRetriever can return many more)
+            retrieved_docs = all_retrieved_docs[:5]
             context = "\n\n".join(d.page_content for d in retrieved_docs)
 
             seen = set()
             for doc in retrieved_docs:
-                src = doc.metadata.get("source", "Unknown")
+                src = doc.metadata.get("title") or doc.metadata.get("source", "Unknown")
                 pg = doc.metadata.get("page_label", 1)
                 key = (src, pg)
                 if key not in seen:
                     seen.add(key)
                     sources.append({"source": src, "page": pg, "excerpt": doc.page_content[:100] + "..."})
 
+            # Guarantee no more than 5 citations
+            sources = sources[:5]
+
             recent_msgs = Message.objects.filter(conversation=conversation).order_by('-created_at')[1:5]
             history_str = "".join(
                 f"{'User' if m.role == 'user' else 'Assistant'}: {m.content}\n"
                 for m in reversed(list(recent_msgs))
             )
+
             system_prompt = (
-                "You are an AI assistant that answers questions using the provided document context.\n\n"
+                "You are an AI assistant that answers questions strictly using the provided document context.\n\n"
                 "Rules:\n"
-                "1. Use only the information found in the Context section.\n"
-                "2. Do not use your own knowledge or make assumptions.\n"
-                "4. Only say you cannot answer if the context contains absolutely no relevant information.\n\n"
-                + (f"Recent conversation:\n{history_str}\n" if history_str.strip() else "")
-                + f"Context:\n{context}\n\nQuestion:\n{user_message_text}"
+                "Use ONLY the information found in the Context section below.\n"
+                "Do NOT use your own knowledge or make assumptions.\n"
+                "Do NOT mention source and citation in your answer.\n"
+                "Try to give answer in short and clear.\n"
+                "If the context does not contain enough information, say so honestly.\n\n"
+                f"Context:\n{context}\n\nQuestion:\n{user_message_text}"
             )
-            llm_stream = ChatOpenAI(model="gpt-5-mini", api_key=api_key, temperature=0.5).stream(system_prompt)
+            llm_stream = ChatOpenAI(model="gpt-5-mini", api_key=api_key, temperature=0.3).stream(system_prompt)
 
         # Stream tokens
         full_text = ""
