@@ -30,7 +30,7 @@ LICENSE
 CLAUDE.md
 
 # Vector_store
-chroma_db/
+chroma/
 
 embedding_cache/
 
