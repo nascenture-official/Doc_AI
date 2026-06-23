@@ -1,0 +1,13 @@
+{% for folder in folders %}
+<label class="folder-picker-item" style="padding-left: calc({{ level }} * 18px + 12px);">
+  <input type="radio" name="move_target_folder" value="{{ folder.pk }}" id="pick-folder-{{ folder.pk }}">
+  <span class="picker-icon"><i class="bi bi-folder-fill"></i></span>
+  <span class="picker-label">{{ folder.name }}</span>
+  {% if folder.document_count %}
+    <span class="picker-count">{{ folder.document_count }}</span>
+  {% endif %}
+</label>
+{% if folder.children.exists %}
+  {% include "documents/_folder_picker_level.html" with folders=folder.children.all level=level|add:1 %}
+{% endif %}
+{% endfor %}

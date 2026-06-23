@@ -6,6 +6,7 @@ A web application built with Django that allows users to upload PDF files and ha
 
 - User authentication with email verification and Google OAuth
 - PDF upload with real-time background processing status
+- Arbitrary nested folder organization for document management
 - Retrieval-Augmented Generation (RAG) powered chat grounded in document content
 - Page-level source citations for every AI response
 - Real-time response streaming via Server-Sent Events (SSE)

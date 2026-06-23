@@ -140,6 +140,18 @@
   }
   .page-pill:hover { background: rgba(99,102,241,0.08); border-color: var(--primary); color: var(--primary-light); }
   .page-pill.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; pointer-events: none; }
+
+  @media (max-width: 768px) {
+    .selection-container {
+      padding: 20px;
+      border-radius: var(--radius);
+    }
+    
+    .doc-checkbox-card {
+      padding: 12px;
+      gap: 12px;
+    }
+  }
 </style>
 {% endblock %}
 

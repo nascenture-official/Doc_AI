@@ -1438,6 +1438,10 @@ img {
     align-items: flex-start;
   }
 
+  .welcome-banner-action {
+    max-width: 100% !important;
+  }
+
   /* Auth card on tablet */
   .auth-card {
     padding: 32px 28px;
@@ -1475,6 +1479,19 @@ img {
   .stats-grid {
     grid-template-columns: 1fr;
   }
+
+  .welcome-banner {
+    padding: 20px 16px;
+    gap: 16px;
+  }
+
+  .welcome-title {
+    font-size: 18px;
+  }
+
+  .section-card {
+    padding: 20px 16px;
+  }
 }
 
 /* Very small phones */
@@ -1493,6 +1510,10 @@ img {
 /* =========================================================
    UTILITIES
    ========================================================= */
+.min-w-0 {
+  min-width: 0 !important;
+}
+
 .text-muted-custom {
   color: var(--text-muted);
 }
@@ -1698,6 +1719,27 @@ img {
 
 .toast-close:hover {
   color: var(--text-primary) !important;
+}
+
+/* ── Dropdowns for Dark Theme ──────────────────────────── */
+.dropdown-menu {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
+}
+
+.dropdown-item {
+  color: var(--text-primary) !important;
+  transition: all 0.2s ease;
+}
+
+.dropdown-item:hover, .dropdown-item:focus {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--primary-light) !important;
+}
+
+.dropdown-divider {
+  border-color: var(--border) !important;
 }
 
 /* ── Light Theme Custom Overrides ────────────────────────── */

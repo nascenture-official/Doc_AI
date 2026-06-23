@@ -1,0 +1,129 @@
+{% load folder_tags %}
+
+{# ── Move Document(s) to Folder Modal ────────────────────────────── #}
+<div class="modal fade" id="moveFolderModal" tabindex="-1"
+     aria-labelledby="moveFolderModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content" style="background:var(--bg-toast); border:1px solid var(--border);">
+
+      <div class="modal-header border-bottom-0 pb-0">
+        <h5 class="modal-title fw-bold" id="moveFolderModalLabel" style="color:var(--text-primary);">
+          <i class="bi bi-folder-symlink me-2" style="color:var(--primary-light);"></i>Move to Folder
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body" style="padding-top: 16px;">
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+          Select a destination folder for the selected document(s).
+        </p>
+
+        <div class="folder-picker" id="folder-picker-list">
+          {# Root option #}
+          <label class="folder-picker-item">
+            <input type="radio" name="move_target_folder" value="" id="pick-root">
+            <span class="picker-icon"><i class="bi bi-house-fill"></i></span>
+            <span class="picker-label">All Documents (root)</span>
+          </label>
+
+          {# Recursive folder tree as radio list #}
+          {% include "documents/_folder_picker_level.html" with folders=root_folders level=0 %}
+        </div>
+      </div>
+
+      <div class="modal-footer border-top-0 pt-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmMoveDocsBtn">
+          <span id="moveBtnText"><i class="bi bi-check2 me-1"></i>Move Here</span>
+          <span id="moveBtnLoader" style="display:none; align-items:center; gap:8px;">
+            <span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px;"></span>
+            Moving…
+          </span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# ── Delete Folder Confirmation Modal ────────────────────────────── #}
+<div class="modal fade" id="deleteFolderModal" tabindex="-1"
+     aria-labelledby="deleteFolderModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-toast); border:1px solid var(--border);">
+
+      <div class="modal-header border-bottom-0 pb-0">
+        <h5 class="modal-title fw-bold" id="deleteFolderModalLabel" style="color:var(--text-primary);">
+          <i class="bi bi-exclamation-triangle-fill me-2" style="color:var(--danger);"></i>Delete Folder
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body" style="color:var(--text-secondary); padding-top:12px;">
+        Delete "<span id="deleteFolderName" class="fw-bold" style="color:var(--text-primary);"></span>"?
+        <div class="mt-2 p-2 rounded" style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.15); font-size:12.5px; color:#f87171;">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          All sub-folders will also be deleted. Documents inside will be moved to "All Documents" (unorganized) — they will not be deleted.
+        </div>
+      </div>
+
+      <div class="modal-footer border-top-0 pt-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteFolderBtn"
+                data-folder-id="" data-folder-name="">
+          <span id="deleteFolderBtnText"><i class="bi bi-trash me-1"></i>Delete Folder</span>
+          <span id="deleteFolderBtnLoader" style="display:none; align-items:center; gap:8px;">
+            <span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px;"></span>
+            Deleting…
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Move Single Folder Modal ────────────────────────────── #}
+<div class="modal fade" id="moveSingleFolderModal" tabindex="-1"
+     aria-labelledby="moveSingleFolderModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content" style="background:var(--bg-toast); border:1px solid var(--border);">
+
+      <div class="modal-header border-bottom-0 pb-0">
+        <h5 class="modal-title fw-bold" id="moveSingleFolderModalLabel" style="color:var(--text-primary);">
+          <i class="bi bi-folder-symlink me-2" style="color:var(--primary-light);"></i>Move Folder
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body" style="padding-top: 16px;">
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+          Select a destination for "<span id="moveSingleFolderName" class="fw-bold" style="color:var(--text-primary);"></span>".
+        </p>
+
+        <div class="folder-picker" id="single-folder-picker-list">
+          {# Root option #}
+          <label class="folder-picker-item">
+            <input type="radio" name="move_single_target_folder" value="" id="pick-single-root">
+            <span class="picker-icon"><i class="bi bi-house-fill"></i></span>
+            <span class="picker-label">All Documents (root)</span>
+          </label>
+
+          {# Recursive folder tree as radio list #}
+          {% include "documents/_folder_picker_level.html" with folders=root_folders level=0 prefix="single_" %}
+        </div>
+      </div>
+
+      <div class="modal-footer border-top-0 pt-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmMoveSingleFolderBtn" data-folder-id="">
+          <span id="moveSingleBtnText"><i class="bi bi-check2 me-1"></i>Move Here</span>
+          <span id="moveSingleBtnLoader" style="display:none; align-items:center; gap:8px;">
+            <span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px;"></span>
+            Moving…
+          </span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>

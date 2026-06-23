@@ -1,0 +1,262 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block title %}Manage Folders — DocChat{% endblock %}
+{% block page_title %}Folders{% endblock %}
+
+{% block extra_css %}
+<style>
+  .manage-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+  }
+  .toolbar {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .folder-row {
+    display: flex;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  .folder-row:hover {
+    background: rgba(255,255,255,0.02);
+  }
+  .folder-row:last-child {
+    border-bottom: none;
+  }
+  .folder-icon {
+    font-size: 28px;
+    color: var(--primary);
+    margin-right: 16px;
+  }
+  .folder-details {
+    flex-grow: 1;
+    min-width: 0;
+  }
+  .min-w-0 {
+    min-width: 0;
+  }
+  .folder-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .folder-title:hover {
+    color: var(--primary-light);
+  }
+  .folder-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .folder-share {
+    display: none;
+  }
+  .action-menu {
+    color: var(--text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 575px) {
+    .folder-row {
+      padding: 12px 16px;
+    }
+    .folder-icon {
+      font-size: 24px;
+      margin-right: 12px;
+    }
+    .toolbar {
+      padding: 16px;
+    }
+    .folder-title {
+      font-size: 14.5px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+  <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+  <input type="hidden" id="folder-create-url" value="{% url 'documents:folder_create' %}">
+  <input type="hidden" id="folder-delete-url-tpl" value="/documents/folders/__ID__/delete/">
+  <input type="hidden" id="folder-rename-url-tpl" value="/documents/folders/__ID__/rename/">
+  <input type="hidden" id="folder-move-url-tpl" value="/documents/folders/__ID__/move/">
+  <input type="hidden" id="doc-move-url-tpl" value="/documents/__ID__/move/">
+  <div class="manage-card">
+    <div class="toolbar flex-wrap gap-3">
+      <div class="d-flex align-items-center gap-2">
+        <h5 class="mb-0" style="color:var(--text-primary); font-weight:600;">All Folders</h5>
+      </div>
+      <div class="d-flex align-items-center gap-2 ms-auto">
+        <a href="{% url 'documents:folder_add_page' %}" class="btn btn-primary btn-sm" title="Add Folder">
+          <i class="bi bi-folder-plus"></i><span class="d-none d-md-inline ms-1">Add Folder</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="folder-list">
+      {% for folder in folders %}
+        <div class="folder-row">
+          <i class="bi bi-folder-fill folder-icon"></i>
+          <div class="folder-details">
+            <div class="d-flex align-items-center gap-3 min-w-0 mb-1">
+               <a href="{% url 'documents:folder_detail' folder.pk %}" class="folder-title">{{ folder.name }}</a>
+            </div>
+            <div class="folder-subtitle">{{ folder.description|default:"Created by development team" }}</div>
+          </div>
+          
+          <div class="dropdown">
+            <i class="bi bi-three-dots action-menu" data-bs-toggle="dropdown" aria-expanded="false"></i>
+            <ul class="dropdown-menu dropdown-menu-end" style="background:var(--bg-card); border:1px solid var(--border);">
+              <li><a class="dropdown-item" href="{% url 'documents:folder_edit_page' folder.pk %}">Edit</a></li>
+              <li><a class="dropdown-item" href="{% url 'documents:folder_add_page' %}?parent_id={{ folder.pk }}">Add sub-folder</a></li>
+              <li><a class="dropdown-item" href="#" onclick="openAddDocumentModal({{ folder.pk }})">Add document</a></li>
+              <li><hr class="dropdown-divider" style="border-color:var(--border);"></li>
+              <li>
+                <button type="button" class="dropdown-item text-danger btn-delete-folder"
+                        data-folder-id="{{ folder.pk }}"
+                        data-folder-name="{{ folder.name }}"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteFolderModal">
+                  Delete
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      {% empty %}
+        <div style="padding: 48px; text-align: center; color: var(--text-muted);">
+          No folders found. Create one to get started.
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Add Document Modal -->
+<div class="modal fade" id="addDocumentModal" tabindex="-1" aria-labelledby="addDocumentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content" style="background:var(--bg-toast); border:1px solid var(--border);">
+      <div class="modal-header border-bottom-0 pb-0">
+        <h5 class="modal-title fw-bold" style="color:var(--text-primary);">Add Documents to Folder</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="add-docs-modal-body" style="max-height: 400px; overflow-y: auto;">
+        <form id="add-documents-form">
+          <input type="hidden" id="target-folder-id" name="folder_id">
+          <div class="mb-3" id="docs-list-container">
+            <!-- Checkboxes will be appended here via JS -->
+          </div>
+          <div id="docs-loading-indicator" class="text-center py-2" style="display:none;">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer border-top-0 pt-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitAddDocuments()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+{% include "documents/_move_folder_modal.html" %}
+
+<script src="{% static 'js/folders.js' %}"></script>
+<script>
+  let addDocsCurrentPage = 1;
+  let addDocsLoading = false;
+  let addDocsHasNext = true;
+
+  function loadDocumentsPage() {
+    if (addDocsLoading || !addDocsHasNext) return;
+    addDocsLoading = true;
+    document.getElementById('docs-loading-indicator').style.display = 'block';
+
+    const folderId = document.getElementById('target-folder-id').value;
+
+    fetch(`/documents/folders/api/unassigned-documents/?page=${addDocsCurrentPage}&exclude_folder=${folderId}`)
+      .then(r => r.json())
+      .then(data => {
+        const container = document.getElementById('docs-list-container');
+        data.documents.forEach(doc => {
+          const div = document.createElement('div');
+          div.className = 'form-check mb-2';
+          div.innerHTML = `
+            <input class="form-check-input" type="checkbox" value="${doc.id}" id="docCheck${doc.id}" name="document_ids[]">
+            <label class="form-check-label" style="color:var(--text-primary);" for="docCheck${doc.id}">
+              <i class="bi bi-file-earmark-pdf text-danger me-1"></i> ${doc.title}
+            </label>
+          `;
+          container.appendChild(div);
+        });
+
+        addDocsHasNext = data.has_next;
+        if (addDocsHasNext) {
+          addDocsCurrentPage++;
+        }
+        addDocsLoading = false;
+        document.getElementById('docs-loading-indicator').style.display = 'none';
+      });
+  }
+
+  function openAddDocumentModal(folderId) {
+    document.getElementById('target-folder-id').value = folderId;
+    document.getElementById('docs-list-container').innerHTML = '';
+    addDocsCurrentPage = 1;
+    addDocsHasNext = true;
+    loadDocumentsPage();
+    new bootstrap.Modal(document.getElementById('addDocumentModal')).show();
+  }
+
+  // Infinite scroll listener
+  document.getElementById('add-docs-modal-body').addEventListener('scroll', function() {
+    if (this.scrollTop + this.clientHeight >= this.scrollHeight - 20) {
+      loadDocumentsPage();
+    }
+  });
+
+  function submitAddDocuments() {
+    const folderId = document.getElementById('target-folder-id').value;
+    const form = document.getElementById('add-documents-form');
+    const formData = new FormData(form);
+    
+    fetch(`/documents/folders/${folderId}/add-documents/`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}'
+      }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        window.location.reload();
+      } else {
+        alert(data.error || 'Error adding documents');
+      }
+    });
+  }
+
+  // Inline deleteFolder removed, using folders.js and modal
+</script>
+{% endblock %}

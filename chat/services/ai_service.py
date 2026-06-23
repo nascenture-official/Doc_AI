@@ -118,7 +118,7 @@ def stream_chat_response(conversation, user_message_text, user_msg_id, new_title
             # 1. Base retriever — k=6 so each sub-query fetches enough candidates
             #    before MultiQueryRetriever deduplicates across all its sub-queries.
             search_kwargs = {
-                "k": 6,
+                "k": 7,
                 "filter": {"document_id": {"$in": doc_ids}}
             }
 
@@ -135,21 +135,29 @@ def stream_chat_response(conversation, user_message_text, user_msg_id, new_title
             # 4. Fetch all candidate chunks from MultiQueryRetriever
             all_retrieved_docs = multiquery_retriever.invoke(input=user_message_text)
 
-            # 5. Re-rank the candidate pool by actual similarity score so the most
-            #    relevant chunk always wins regardless of which sub-query found it.
-            #    MultiQueryRetriever's output order is arbitrary (based on sub-query
-            #    repetition frequency), which can bury high-scoring chunks.
-            if all_retrieved_docs:
-                scored = vector_store.similarity_search_with_score(
-                    user_message_text, k=len(all_retrieved_docs),
-                    filter={"document_id": {"$in": doc_ids}}
-                )
-                # Build a score lookup by page_content (unique enough for reranking)
-                score_map = {doc.page_content: score for doc, score in scored}
-                all_retrieved_docs.sort(key=lambda d: score_map.get(d.page_content, 9999))
+            # Cap to top 6 chunks, but ensure diversity across documents
+            # so that a single document doesn't monopolize the limited chunk count.
+            # We use a round-robin approach to guarantee at least 1 chunk from every relevant document.
+            diverse_docs = []
+            docs_by_id = {}
+            for doc in all_retrieved_docs:
+                doc_id = doc.metadata.get("document_id")
+                if doc_id not in docs_by_id:
+                    docs_by_id[doc_id] = []
+                docs_by_id[doc_id].append(doc)
+                
+            while len(diverse_docs) < 6 and docs_by_id:
+                to_remove = []
+                for doc_id, docs in docs_by_id.items():
+                    if len(diverse_docs) >= 6:
+                        break
+                    diverse_docs.append(docs.pop(0))
+                    if not docs:
+                        to_remove.append(doc_id)
+                for doc_id in to_remove:
+                    del docs_by_id[doc_id]
 
-            # Cap to top 5 unique chunks (MultiQueryRetriever can return many more)
-            retrieved_docs = all_retrieved_docs[:5]
+            retrieved_docs = diverse_docs
             context = "\n\n".join(d.page_content for d in retrieved_docs)
 
             seen = set()
@@ -161,8 +169,8 @@ def stream_chat_response(conversation, user_message_text, user_msg_id, new_title
                     seen.add(key)
                     sources.append({"source": src, "page": pg, "excerpt": doc.page_content[:100] + "..."})
 
-            # Guarantee no more than 5 citations
-            sources = sources[:5]
+            # Guarantee no more than 10 citations
+            sources = sources[:10]
 
             recent_msgs = Message.objects.filter(conversation=conversation).order_by('-created_at')[1:5]
             history_str = "".join(

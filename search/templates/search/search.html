@@ -144,6 +144,26 @@
   }
   .page-pill:hover { background: rgba(99,102,241,0.08); border-color: var(--primary); color: var(--primary-light); }
   .page-pill.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; pointer-events: none; }
+
+  /* Responsive styles */
+  @media (max-width: 768px) {
+    .search-card {
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .search-form-wrapper {
+      flex-direction: column;
+    }
+    .search-btn-custom {
+      width: 100%;
+      justify-content: center;
+    }
+    .result-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+  }
 </style>
 {% endblock %}
 

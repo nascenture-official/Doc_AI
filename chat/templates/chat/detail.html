@@ -7,7 +7,6 @@
 
 {% block extra_css %}
 <style>
-  /* Split layout */
   .chat-wrapper-layout {
     display: flex;
     height: calc(100vh - var(--topbar-h) - 40px);
@@ -16,12 +15,29 @@
     border-radius: var(--radius-lg);
     overflow: hidden;
     border: 1px solid var(--border);
+    position: relative;
   }
 
-  /* Chat list sidebar */
+  /* Overlay for mobile sidebar */
+  .chat-sidebar-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 90;
+    backdrop-filter: blur(2px);
+    transition: opacity var(--transition);
+    opacity: 0;
+  }
+  .chat-sidebar-overlay.show {
+    display: block;
+    opacity: 1;
+  }
+
   .chat-sidebar {
     width: 280px;
     background: var(--bg-surface);
+    backdrop-filter: blur(16px);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
@@ -397,18 +413,49 @@
   }
 
   /* Responsive */
-  @media (max-width: 768px) {
+  @media (max-width: 992px) {
+    .chat-wrapper-layout {
+      margin: -16px;
+      height: calc(100vh - var(--topbar-h) - 32px);
+      border-radius: var(--radius);
+    }
+
     .chat-sidebar {
       position: absolute;
-      left: -280px;
+      right: -280px;
+      left: auto;
       top: 0;
       bottom: 0;
       z-index: 100;
-      transition: left var(--transition);
+      background: var(--bg-toast); /* More opaque background for overlay */
+      transition: right 0.3s ease;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+      border-right: none;
+      border-left: 1px solid var(--border);
     }
 
     .chat-sidebar.open {
-      left: 0;
+      right: 0;
+      left: auto;
+    }
+
+    .chat-main-header {
+      padding: 12px 16px;
+    }
+
+    .chat-messages {
+      padding: 16px;
+      gap: 16px;
+    }
+
+    .chat-bubble {
+      max-width: 90%;
+      padding: 12px 16px;
+      font-size: 14px;
+    }
+
+    .chat-input-area {
+      padding: 12px 16px;
     }
   }
 
@@ -461,6 +508,9 @@
 
 {% block content %}
 <div class="chat-wrapper-layout">
+  
+  <!-- Mobile Sidebar Overlay -->
+  <div class="chat-sidebar-overlay" id="chat-sidebar-overlay"></div>
 
   <!-- Sidebar Conversation List -->
   <div class="chat-sidebar" id="chat-sidebar">
@@ -547,46 +597,40 @@
   <div class="chat-main">
     <div class="chat-main-header">
       <div>
-        <h4 class="fw-bold mb-1" style="font-size:15px;color:var(--text-primary);">Active Session</h4>
-        <div class="linked-docs-list">
-          <span style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
-            <i class="bi bi-link-45deg"></i> Grounded PDFs:
-          </span>
-          {% for doc in conversation.documents.all %}
-          <span class="linked-doc-tag" title="{{ doc.title }}">
-            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>{{ doc.title }}
-          </span>
-          {% endfor %}
-        </div>
+        <h4 class="fw-bold mb-0" style="font-size:16px;color:var(--text-primary);">Active Session</h4>
       </div>
-      <!-- Mobile toggle -->
-      <button class="btn btn-outline-custom p-2 d-md-none" id="mobile-chat-sidebar-toggle">
-        <i class="bi bi-chat-left-dots"></i>
-      </button>
 
-      <!-- Export Dropdown -->
-      <div class="dropdown" id="export-dropdown">
-        <button class="btn btn-outline-custom dropdown-toggle py-2 px-3" type="button" data-bs-toggle="dropdown"
-          aria-expanded="false" id="export-btn" title="Export this conversation">
-          <i class="bi bi-download me-1"></i> Export
+      <div class="d-flex align-items-center gap-2">
+        <!-- Export Dropdown -->
+        <div class="dropdown" id="export-dropdown">
+          <button class="btn btn-outline-custom dropdown-toggle p-2 px-md-3 d-flex align-items-center" type="button" data-bs-toggle="dropdown"
+            aria-expanded="false" id="export-btn" title="Export this conversation">
+            <i class="bi bi-download"></i>
+            <span class="d-none d-md-inline ms-2">Export</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+              <a class="dropdown-item" href="#" id="export-pdf-btn">
+                <i class="bi bi-file-earmark-pdf text-danger me-2"></i>Export as PDF
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="#" id="export-md-btn">
+                <i class="bi bi-markdown me-2"></i>Export as Markdown
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="#" id="export-txt-btn">
+                <i class="bi bi-file-earmark-text me-2"></i>Export as TXT
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Mobile Sidebar Toggle -->
+        <button class="btn btn-outline-custom p-2 d-lg-none" id="mobile-chat-sidebar-toggle" title="Menu">
+          <i class="bi bi-three-dots"></i>
         </button>
-        <ul class="dropdown-menu dropdown-menu-end">
-          <li>
-            <a class="dropdown-item" href="#" id="export-pdf-btn">
-              <i class="bi bi-file-earmark-pdf text-danger me-2"></i>Export as PDF
-            </a>
-          </li>
-          <li>
-            <a class="dropdown-item" href="#" id="export-md-btn">
-              <i class="bi bi-markdown me-2"></i>Export as Markdown
-            </a>
-          </li>
-          <li>
-            <a class="dropdown-item" href="#" id="export-txt-btn">
-              <i class="bi bi-file-earmark-text me-2"></i>Export as TXT
-            </a>
-          </li>
-        </ul>
       </div>
     </div>
 
@@ -792,10 +836,43 @@
 
     // Mobile sidebar toggle
     var mobileToggle = document.getElementById('mobile-chat-sidebar-toggle');
+    var sidebar = document.getElementById('chat-sidebar');
+    var overlay = document.getElementById('chat-sidebar-overlay');
+
     if (mobileToggle) {
       mobileToggle.addEventListener('click', function (e) {
         e.stopPropagation();
-        document.getElementById('chat-sidebar').classList.toggle('open');
+        sidebar.classList.toggle('open');
+        if (sidebar.classList.contains('open')) {
+          overlay.classList.add('show');
+          // Ensure main left sidebar is closed
+          var mainSidebar = document.getElementById('sidebar');
+          var mainOverlay = document.getElementById('sidebar-overlay');
+          if (mainSidebar && mainSidebar.classList.contains('open')) {
+            mainSidebar.classList.remove('open');
+            if (mainOverlay) mainOverlay.classList.add('d-none');
+          }
+        } else {
+          overlay.classList.remove('show');
+        }
+      });
+    }
+
+    // Close chat sidebar if main sidebar is toggled
+    var mainToggle = document.getElementById('sidebar-toggle');
+    if (mainToggle) {
+      mainToggle.addEventListener('click', function() {
+        if (sidebar.classList.contains('open')) {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('show');
+        }
+      });
+    }
+
+    if (overlay) {
+      overlay.addEventListener('click', function () {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('show');
       });
     }
 

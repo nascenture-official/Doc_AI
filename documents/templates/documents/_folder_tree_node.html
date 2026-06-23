@@ -1,0 +1,87 @@
+{% load folder_tags %}
+{% for folder in folders %}
+<div class="folder-node"
+     data-folder-id="{{ folder.pk }}"
+     data-folder-name="{{ folder.name }}"
+     draggable="true">
+
+  <div class="folder-row {% if current_folder and current_folder.pk == folder.pk %}active{% endif %}"
+       style="padding-left: calc({{ level }} * 14px + 8px);">
+
+    {# Expand/collapse chevron — only shown when there are children #}
+    {% if folder.children.exists %}
+      <button class="folder-toggle btn p-0"
+              data-bs-toggle="collapse"
+              data-bs-target="#folder-children-{{ folder.pk }}"
+              aria-expanded="false"
+              id="toggle-{{ folder.pk }}"
+              title="Toggle subfolder">
+        <i class="bi bi-chevron-right folder-chevron"></i>
+      </button>
+    {% else %}
+      <span class="folder-toggle-placeholder"></span>
+    {% endif %}
+
+    <i class="bi bi-folder-fill folder-icon"></i>
+
+    <a href="{% url 'documents:folder_detail' folder.pk %}"
+       class="folder-name-link flex-grow-1 text-truncate"
+       title="{{ folder.name }}">
+      <span class="folder-label">{{ folder.name }}</span>
+    </a>
+
+    <span class="folder-count-badge" title="{{ folder.document_count }} document{{ folder.document_count|pluralize }}">
+      {{ folder.document_count }}
+    </span>
+
+    <div class="folder-actions">
+      <button class="folder-action-btn btn-folder-create-sub"
+              data-folder-id="{{ folder.pk }}"
+              data-bs-toggle="modal"
+              data-bs-target="#createFolderModal"
+              title="Create subfolder">
+        <i class="bi bi-folder-plus"></i>
+      </button>
+      <button class="folder-action-btn btn-add-docs"
+              data-folder-id="{{ folder.pk }}"
+              data-folder-name="{{ folder.name }}"
+              data-bs-toggle="modal"
+              data-bs-target="#addDocsModal"
+              title="Add documents to folder">
+        <i class="bi bi-file-earmark-plus"></i>
+      </button>
+      <button class="folder-action-btn btn-folder-rename"
+              data-folder-id="{{ folder.pk }}"
+              data-folder-name="{{ folder.name }}"
+              title="Rename folder">
+        <i class="bi bi-pencil"></i>
+      </button>
+      <button class="folder-action-btn btn-folder-move-single"
+              data-folder-id="{{ folder.pk }}"
+              data-folder-name="{{ folder.name }}"
+              data-bs-toggle="modal"
+              data-bs-target="#moveSingleFolderModal"
+              title="Move folder">
+        <i class="bi bi-folder-symlink"></i>
+      </button>
+      <button class="folder-action-btn btn-folder-delete"
+              data-folder-id="{{ folder.pk }}"
+              data-folder-name="{{ folder.name }}"
+              data-bs-toggle="modal"
+              data-bs-target="#deleteFolderModal"
+              title="Delete folder">
+        <i class="bi bi-trash"></i>
+      </button>
+    </div>
+  </div>
+
+  {# Nested children — collapsed by default, state managed by JS/localStorage #}
+  {% if folder.children.exists %}
+  <div class="collapse folder-children" id="folder-children-{{ folder.pk }}">
+    {% render_folder_tree folder.children.all current_folder level|add:1 %}
+
+  </div>
+  {% endif %}
+
+</div>
+{% endfor %}

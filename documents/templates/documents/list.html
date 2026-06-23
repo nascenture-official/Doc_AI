@@ -1,18 +1,253 @@
 {% extends "base_app.html" %}
-{% load static %}
+{% load static folder_tags %}
 
 {% block title %}My Documents — DocChat{% endblock %}
 {% block page_title %}My Documents{% endblock %}
 
 {% block extra_css %}
 <style>
-  /* Extra styles specific to the PDF Upload System */
+  /* ── Layout ── */
+  .folder-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 991px) {
+    .folder-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .folder-sidebar {
+      display: none;
+    }
+  }
+
+  /* ── Sidebar tree panel ── */
+  .folder-sidebar {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 0;
+    position: sticky;
+    top: 80px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+  }
+
+  .sidebar-tree-header {
+    padding: 0 16px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+
+  .sidebar-all-docs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+
+  .sidebar-all-docs:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-primary);
+  }
+
+  .sidebar-all-docs.active {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary-light);
+    border-right: 2px solid var(--primary);
+  }
+
+  /* ── Folder tree nodes ── */
+  .folder-node {
+    position: relative;
+  }
+
+  .folder-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px 7px 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+    min-height: 36px;
+  }
+
+  .folder-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .folder-row.active {
+    background: rgba(99, 102, 241, 0.12);
+    border-right: 2px solid var(--primary);
+  }
+
+  .folder-row.active .folder-name-link {
+    color: var(--primary-light) !important;
+  }
+
+  .folder-toggle {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+  }
+
+  .folder-toggle-placeholder {
+    width: 18px;
+    flex-shrink: 0;
+  }
+
+  .folder-chevron {
+    font-size: 10px;
+    transition: transform 0.2s;
+  }
+
+  .folder-toggle[aria-expanded="true"] .folder-chevron {
+    transform: rotate(90deg);
+  }
+
+  .folder-icon {
+    color: #f59e0b;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .folder-name-link {
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    overflow: hidden;
+    flex: 1;
+  }
+
+  .folder-name-link:hover {
+    color: var(--text-primary);
+  }
+
+  .folder-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 110px;
+  }
+
+  .folder-count-badge {
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1px 7px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .folder-actions {
+    display: none;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .folder-row:hover .folder-actions {
+    display: flex;
+  }
+
+  .folder-action-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    padding: 0;
+  }
+
+  .folder-action-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+  }
+
+  .btn-folder-delete:hover {
+    color: var(--danger) !important;
+    background: rgba(239, 68, 68, 0.1) !important;
+  }
+
+  /* Drag-and-drop target highlight */
+  .folder-node.drag-over>.folder-row {
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px dashed var(--primary);
+    border-radius: var(--radius-sm);
+  }
+
+  .folder-node.drag-invalid>.folder-row {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px dashed var(--danger);
+    border-radius: var(--radius-sm);
+  }
+
+  /* Add-subfolder input row */
+  .add-subfolder-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+  }
+
+  .new-folder-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 12.5px;
+    padding: 3px 4px;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+
+  .new-folder-input:focus {
+    border-bottom-color: var(--primary);
+  }
+
+  .add-root-folder-row {
+    padding: 12px 16px 4px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+
+  /* ── Upload section ── */
   .upload-container {
     background: var(--bg-surface);
     border-radius: var(--radius-lg);
     padding: 32px;
     border: 1px solid var(--border);
-    margin-bottom: 32px;
+    margin-bottom: 24px;
     position: relative;
   }
 
@@ -30,7 +265,8 @@
     gap: 16px;
   }
 
-  .drop-zone:hover, .drop-zone.dragover {
+  .drop-zone:hover,
+  .drop-zone.dragover {
     border-color: var(--primary);
     background: rgba(99, 102, 241, 0.04);
     box-shadow: 0 0 20px rgba(99, 102, 241, 0.08);
@@ -122,7 +358,6 @@
     color: var(--text-muted);
   }
 
-  /* Progress Bar styling override */
   .progress-custom {
     height: 6px;
     background-color: rgba(255, 255, 255, 0.05);
@@ -146,6 +381,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
   }
 
   .badge-status.uploading {
@@ -168,7 +404,7 @@
     color: var(--danger);
   }
 
-  /* Document Table */
+  /* ── Documents Table ── */
   .documents-card {
     background: var(--bg-surface);
     border-radius: var(--radius-lg);
@@ -196,6 +432,7 @@
     padding: 16px;
     border-bottom: 1px solid var(--border);
     text-align: left;
+    white-space: nowrap;
   }
 
   .table-custom td {
@@ -221,12 +458,24 @@
     font-weight: 500;
     color: var(--text-primary);
     max-width: 320px;
+    min-width: 0;
   }
 
-  .doc-title-cell span {
+  .doc-title-cell > i {
+    flex-shrink: 0;
+  }
+
+  .doc-title-cell a,
+  .doc-title-cell > span {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+    display: block;
+  }
+
+  .doc-title-cell a span {
+    display: inline;
   }
 
   .action-btn {
@@ -254,9 +503,58 @@
     border-color: rgba(239, 68, 68, 0.2);
   }
 
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+  /* Folder badge in table */
+  .folder-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    font-size: 11.5px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-decoration: none;
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.15s;
+  }
+
+  .folder-badge:hover {
+    background: rgba(245, 158, 11, 0.18);
+    color: #f59e0b;
+  }
+
+  .no-folder-badge {
+    font-size: 12px;
+    color: var(--text-muted);
+    opacity: 0.5;
+  }
+
+  /* Selection toolbar */
+  .selection-toolbar {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+  }
+
+  .selection-toolbar.active {
+    display: flex;
+  }
+
+  .selection-count {
+    font-weight: 600;
+    color: var(--primary-light);
   }
 
   /* Spinner */
@@ -310,7 +608,7 @@
   }
 
   .page-btn:hover:not(.disabled) {
-    background: rgba(99,102,241,0.08);
+    background: rgba(99, 102, 241, 0.08);
     border-color: var(--primary);
     color: var(--primary-light);
   }
@@ -337,7 +635,7 @@
   }
 
   .page-pill:hover {
-    background: rgba(99,102,241,0.08);
+    background: rgba(99, 102, 241, 0.08);
     border-color: var(--primary);
     color: var(--primary-light);
   }
@@ -350,24 +648,58 @@
     pointer-events: none;
   }
 
-  /* Responsive Upload Layout for Small Screens */
+  @media (max-width: 768px) {
+    .doc-title-cell {
+      max-width: 200px;
+    }
+  }
+
   @media (max-width: 575px) {
+    .doc-title-cell {
+      max-width: 160px;
+    }
+
     .upload-container {
       padding: 16px;
       margin-bottom: 20px;
     }
+
     .drop-zone {
       padding: 32px 16px;
       gap: 12px;
     }
+
     .drop-icon {
       font-size: 36px;
     }
+
     .drop-title {
       font-size: 14.5px;
     }
+
     .drop-sub {
       font-size: 12px;
+    }
+
+    .documents-card {
+      padding: 16px;
+      border-radius: var(--radius);
+    }
+
+    .table-custom th, .table-custom td {
+      padding: 12px 8px;
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 </style>
@@ -376,109 +708,173 @@
 {% block content %}
 <div class="container-fluid px-0">
 
-  <!-- CSRF and URLs for JS -->
+  {# Hidden data for JS #}
   <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
   <input type="hidden" id="upload-url" value="{% url 'documents:upload_ajax' %}">
+  <input type="hidden" id="folder-create-url" value="{% url 'documents:folder_create' %}">
+  <input type="hidden" id="folder-delete-url-tpl" value="/documents/folders/__ID__/delete/">
+  <input type="hidden" id="folder-rename-url-tpl" value="/documents/folders/__ID__/rename/">
+  <input type="hidden" id="folder-move-url-tpl" value="/documents/folders/__ID__/move/">
+  <input type="hidden" id="doc-move-url-tpl" value="/documents/__ID__/move/">
 
-  <!-- Drag-and-Drop Upload Section -->
-  <div class="upload-container">
-    <div class="drop-zone" id="drop-zone">
-      <div class="drop-icon">
-        <i class="bi bi-cloud-arrow-up-fill"></i>
+  <div class="folder-layout" style="display:block;">
+
+    {# ── Main content ── #}
+    <div class="folder-main" style="min-width:0;">
+
+      {# Active folder filter banner #}
+      {% if current_folder %}
+      <div class="d-flex align-items-center gap-2 mb-3 p-3 rounded"
+        style="background:rgba(99,102,241,0.07); border:1px solid rgba(99,102,241,0.15); font-size:13.5px;">
+        <i class="bi bi-folder-fill" style="color:#f59e0b;"></i>
+        <span style="color:var(--text-secondary);">Filtering by folder:</span>
+        <strong style="color:var(--text-primary);">{{ current_folder.name }}</strong>
+        <a href="{% url 'documents:list' %}" class="ms-auto btn btn-sm btn-outline-secondary" style="font-size:12px;">
+          <i class="bi bi-x me-1"></i>Clear filter
+        </a>
+        <a href="{% url 'documents:folder_detail' current_folder.pk %}" class="btn btn-sm btn-outline-primary"
+          style="font-size:12px;">
+          <i class="bi bi-folder me-1"></i>Open folder
+        </a>
       </div>
-      <div>
-        <h3 class="drop-title d-none d-md-block">Drag and drop your PDF files here</h3>
-        <h3 class="drop-title d-md-none">Upload your PDF files</h3>
-        <p class="drop-sub d-none d-md-block">or click to browse your files (Max 20MB per PDF)</p>
-        <p class="drop-sub d-md-none">Tap to browse your files (Max 20MB per PDF)</p>
+      {% endif %}
+
+      {# Drag-and-Drop Upload Section #}
+      <div class="upload-container">
+        <div class="drop-zone" id="drop-zone">
+          <div class="drop-icon">
+            <i class="bi bi-cloud-arrow-up-fill"></i>
+          </div>
+          <div>
+            <h3 class="drop-title d-none d-md-block">Drag and drop your PDF files here</h3>
+            <h3 class="drop-title d-md-none">Upload your PDF files</h3>
+            <p class="drop-sub d-none d-md-block">or click to browse your files (Max 20MB per PDF)</p>
+            <p class="drop-sub d-md-none">Tap to browse your files (Max 20MB per PDF)</p>
+          </div>
+        </div>
+        <input type="file" id="file-input" multiple accept=".pdf" class="d-none">
       </div>
-    </div>
-    <input type="file" id="file-input" multiple accept=".pdf" class="d-none">
-  </div>
 
-  <!-- Upload Queue Section -->
-  <div id="queue-section" class="d-none">
-    <h3 class="queue-title">Uploading queue</h3>
-    <div class="queue-list" id="upload-queue">
-      <!-- Queue items will be dynamically inserted here -->
-    </div>
-  </div>
+      {# Upload Queue Section #}
+      <div id="queue-section" class="d-none">
+        <h3 class="queue-title">Uploading queue</h3>
+        <div class="queue-list" id="upload-queue">
+          <!-- Queue items inserted dynamically -->
+        </div>
+      </div>
 
-  <!-- Document List Section -->
-  <div class="documents-card">
-    <div class="d-flex align-items-center justify-content-between mb-4">
-      <h3 class="section-title mb-0">My Documents</h3>
-      <span class="badge-custom badge-indigo" id="doc-counter">{{ total_count }} total</span>
-    </div>
+      {# Document List Section #}
+      <div class="documents-card">
+        <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+          <h3 class="section-title mb-0">
+            {% if current_folder %}{{ current_folder.name }}{% else %}My Documents{% endif %}
+          </h3>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge-custom badge-indigo" id="doc-counter">{{ total_count }} total</span>
+          </div>
+        </div>
 
-    <!-- Empty State -->
-    <div id="empty-state" class="{% if documents %}d-none{% endif %}" style="text-align:center;padding:48px 0;color:var(--text-muted);">
-      <i class="bi bi-file-earmark-pdf" style="font-size:48px;opacity:0.3;display:block;margin-bottom:16px;"></i>
-      <p style="font-size:15px;margin-bottom:0;">You haven't uploaded any documents yet.</p>
-      <p style="font-size:13px;opacity:0.7;">Upload a PDF above to view and manage it here.</p>
-    </div>
+        {# Selection toolbar — appears when ≥1 checkbox is checked #}
+        <div class="selection-toolbar" id="selection-toolbar">
+          <span><span class="selection-count" id="selection-count">0</span> selected</span>
+          <button class="btn btn-sm btn-danger" id="toolbar-delete-btn" title="Delete Selected">
+            <i class="bi bi-trash"></i><span class="d-none d-md-inline ms-1">Delete Selected</span>
+          </button>
+          <button class="btn btn-sm btn-outline-secondary ms-auto" id="toolbar-clear-btn" title="Clear selection">
+            <i class="bi bi-x-circle"></i><span class="d-none d-md-inline ms-1">Clear</span>
+          </button>
+        </div>
 
-    <!-- Documents Table -->
-    <div id="table-section" class="documents-table-wrapper {% if not documents %}d-none{% endif %}">
-      <table class="table-custom" id="documents-table">
-        <thead>
-          <tr>
-            <th>Document Name</th>
-            <th>Uploaded Date</th>
-            <th>File Size</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="documents-tbody">
-          {% for doc in documents %}
-          <tr id="doc-row-{{ doc.id }}">
-            <td>
-              <div class="doc-title-cell" id="doc-title-cell-{{ doc.id }}">
-                <i class="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>
-                {% if doc.status == 'ready' %}
-                  <a href="{% url 'documents:detail' doc.id %}" class="text-decoration-none text-light-hover fw-medium" title="View Details & Summaries">
-                    <span>{{ doc.title }}</span>
+        {# Empty State #}
+        <div id="empty-state" class="{% if documents %}d-none{% endif %}"
+          style="text-align:center;padding:48px 0;color:var(--text-muted);">
+          <i class="bi bi-file-earmark-pdf" style="font-size:48px;opacity:0.3;display:block;margin-bottom:16px;"></i>
+          <p style="font-size:15px;margin-bottom:0;">You haven't uploaded any documents yet.</p>
+          <p style="font-size:13px;opacity:0.7;">Upload a PDF above to view and manage it here.</p>
+        </div>
+
+        {# Documents Table #}
+        <div id="table-section" class="documents-table-wrapper {% if not documents %}d-none{% endif %}">
+          <table class="table-custom" id="documents-table">
+            <thead>
+              <tr>
+                <th style="width:36px;">
+                  <input type="checkbox" id="select-all-docs" title="Select all">
+                </th>
+                <th>Document Name</th>
+                <th class="d-none d-md-table-cell">Folder</th>
+                <th class="d-none d-md-table-cell">Uploaded Date</th>
+                <th class="d-none d-sm-table-cell">File Size</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="documents-tbody">
+              {% for doc in documents %}
+              <tr id="doc-row-{{ doc.id }}">
+                <td>
+                  <input type="checkbox" class="doc-checkbox" value="{{ doc.id }}" id="check-doc-{{ doc.id }}">
+                </td>
+                <td>
+                  <div class="doc-title-cell" id="doc-title-cell-{{ doc.id }}">
+                    <i class="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>
+                    {% if doc.status == 'ready' %}
+                    <a href="{% url 'documents:detail' doc.id %}"
+                      class="text-decoration-none text-light-hover fw-medium" title="View Details & Summaries">
+                      <span>{{ doc.title }}</span>
+                    </a>
+                    {% else %}
+                    <span title="{{ doc.title }}" class="text-muted">{{ doc.title }}</span>
+                    {% endif %}
+                  </div>
+                </td>
+                <td class="d-none d-md-table-cell" id="folder-cell-{{ doc.id }}">
+                  {% if doc.folder %}
+                  <a href="{% url 'documents:folder_detail' doc.folder.pk %}" class="folder-badge"
+                    title="{{ doc.folder.name }}">
+                    <i class="bi bi-folder-fill" style="font-size:10px;"></i>
+                    {{ doc.folder.name }}
                   </a>
-                {% else %}
-                  <span title="{{ doc.title }}" class="text-muted">{{ doc.title }}</span>
-                {% endif %}
-              </div>
-            </td>
-            <td>{{ doc.uploaded_at|date:"M d, Y, I:i A" }}</td>
-            <td>{{ doc.file_size|filesizeformat }}</td>
-            <td id="status-cell-{{ doc.id }}">
-              {% include "documents/_status_badge.html" with doc=doc %}
-            </td>
-            <td>
-              <div class="d-flex align-items-center gap-2">
-                <a href="{% url 'documents:download' doc.id %}" class="action-btn" title="Download PDF">
-                  <i class="bi bi-download"></i>
-                </a>
-                <button type="button" class="action-btn btn-delete btn-delete-doc" 
-                        data-id="{{ doc.id }}" 
-                        data-url="{% url 'documents:delete' doc.id %}"
-                        data-title="{{ doc.title }}"
-                        data-bs-toggle="modal"
-                        data-bs-target="#deleteDocModal"
-                        title="Delete Document">
-                  <i class="bi bi-trash"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+                  {% else %}
+                  <span class="no-folder-badge">—</span>
+                  {% endif %}
+                </td>
+                <td class="d-none d-md-table-cell">{{ doc.uploaded_at|date:"M d, Y, I:i A" }}</td>
+                <td class="d-none d-sm-table-cell">{{ doc.file_size|filesizeformat }}</td>
+                <td id="status-cell-{{ doc.id }}">
+                  {% include "documents/_status_badge.html" with doc=doc %}
+                </td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <a href="{% url 'documents:download' doc.id %}" class="action-btn" title="Download PDF">
+                      <i class="bi bi-download"></i>
+                    </a>
+                    <button type="button" class="action-btn btn-delete btn-delete-doc" data-id="{{ doc.id }}"
+                      data-url="{% url 'documents:delete' doc.id %}" data-title="{{ doc.title }}" data-bs-toggle="modal"
+                      data-bs-target="#deleteDocModal" title="Delete Document">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
 
-    {% include "_pagination.html" with page_obj=page_obj %}
+        {% include "_pagination.html" with page_obj=page_obj %}
+      </div>
 
-  </div>
+    </div>{# end folder-main #}
+  </div>{# end folder-layout #}
+
+  {# Modals #}
+  {% include "documents/_move_folder_modal.html" %}
 
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'js/upload.js' %}?v=2"></script>
+<script src="{% static 'js/folders.js' %}"></script>
 {% endblock %}
