@@ -98,6 +98,10 @@ class Document(models.Model):
     error_message = models.TextField(blank=True, null=True)
     summary_short = models.TextField(blank=True, null=True)
     summary_long = models.TextField(blank=True, null=True)
+    rewrite_content = models.TextField(blank=True, null=True)
+    rewrite_style = models.CharField(max_length=50, blank=True, null=True)
+    key_points = models.TextField(blank=True, null=True)
+    faqs = models.TextField(blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(blank=True, null=True)
 
@@ -106,3 +110,109 @@ class Document(models.Model):
 
     def __str__(self):
         return self.title
+
+TRANSLATION_LANGUAGES = [
+    ('en', 'English'),
+    ('hi', 'Hindi'),
+]
+
+class DocumentTranslation(models.Model):
+    STATUS_CHOICES = [
+        ('processing', 'Processing'),
+        ('ready', 'Ready'),
+        ('failed', 'Failed'),
+    ]
+
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='translations')
+    language = models.CharField(max_length=10, choices=TRANSLATION_LANGUAGES)
+    translated_text = models.TextField(blank=True, null=True)
+    status = models.CharField(choices=STATUS_CHOICES, default='processing', max_length=20)
+    error_message = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('document', 'language')
+
+    def __str__(self):
+        return f"{self.document.title} - {self.get_language_display()}"
+
+class DocumentComparison(models.Model):
+    STATUS_CHOICES = [
+        ('processing', 'Processing'),
+        ('ready', 'Ready'),
+        ('failed', 'Failed'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='document_comparisons')
+    document_base = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='comparisons_as_base')
+    document_compare = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='comparisons_as_compare')
+    diff_data = models.TextField(blank=True, null=True)
+    ai_summary = models.TextField(blank=True, null=True)
+    status = models.CharField(choices=STATUS_CHOICES, default='processing', max_length=20)
+    error_message = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['user', 'document_base', 'document_compare']
+
+    def __str__(self):
+        return f"Comparison: {self.document_base.title} vs {self.document_compare.title}"
+
+
+class Bookmark(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='bookmarks')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    page_number = models.PositiveIntegerField()
+    title = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['page_number']
+        unique_together = ('document', 'user', 'page_number')
+
+    def __str__(self):
+        return f"Bookmark: {self.document.title} - Page {self.page_number}"
+
+
+class Highlight(models.Model):
+    COLOR_CHOICES = [
+        ('yellow', 'Yellow'),
+        ('green', 'Green'),
+        ('pink', 'Pink'),
+        ('blue', 'Blue'),
+    ]
+
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='highlights')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    page_number = models.PositiveIntegerField()
+    text = models.TextField()
+    color = models.CharField(max_length=10, choices=COLOR_CHOICES, default='yellow')
+    position_data = models.JSONField(help_text='Schema: {"rects": [{"x1": float, "y1": float, "x2": float, "y2": float, "page": int}], "selected_text": str}')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['page_number', 'created_at']
+
+    def __str__(self):
+        return f"Highlight on {self.document.title} - Page {self.page_number}"
+
+
+class Note(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='notes')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    page_number = models.PositiveIntegerField()
+    content = models.TextField()
+    highlight = models.OneToOneField(Highlight, on_delete=models.SET_NULL, null=True, blank=True, related_name='note')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['page_number', 'created_at']
+
+    def __str__(self):
+        return f"Note on {self.document.title} - Page {self.page_number}"

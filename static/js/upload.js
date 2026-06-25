@@ -214,13 +214,19 @@ $(function () {
     const rowHTML = `
       <tr id="doc-row-${doc.id}" style="display:none;">
         <td>
+          <input type="checkbox" class="doc-checkbox" value="${doc.id}" id="check-doc-${doc.id}">
+        </td>
+        <td>
           <div class="doc-title-cell" id="doc-title-cell-${doc.id}">
             <i class="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>
             <span title="${doc.title}" class="text-muted">${doc.title}</span>
           </div>
         </td>
-        <td>${doc.uploaded_at}</td>
-        <td>${formatBytes(doc.file_size)}</td>
+        <td class="d-none d-md-table-cell" id="folder-cell-${doc.id}">
+          <span class="no-folder-badge">—</span>
+        </td>
+        <td class="d-none d-md-table-cell">${doc.uploaded_at}</td>
+        <td class="d-none d-sm-table-cell">${formatBytes(doc.file_size)}</td>
         <td id="status-cell-${doc.id}">
           <span class="badge-status processing" 
                 id="status-badge-${doc.id}"

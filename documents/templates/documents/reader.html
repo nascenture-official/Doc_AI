@@ -1,0 +1,1029 @@
+{% extends "base_app.html" %}
+{% load static %}
+
+{% block title %}Reading: {{ document.title }} — DocChat{% endblock %}
+{% block page_title %}Document Reader{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
+<style>
+  .reader-layout {
+    display: flex;
+    height: calc(100vh - var(--topbar-h) - 40px);
+    margin: -20px;
+    background: var(--bg-base);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .pdf-container {
+    flex: 1;
+    overflow-y: auto;
+    position: relative;
+    background: #e5e7eb; /* dark gray for pdf background */
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  /* PDF Page Wrapper */
+  .page-wrapper {
+    position: relative;
+    background: #ffffff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin: 0 auto;
+  }
+
+  /* Canvas */
+  .page-wrapper canvas {
+    display: block;
+  }
+
+  /* Text Layer */
+  .textLayer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    opacity: 0.2;
+    line-height: 1.0;
+  }
+  .textLayer > span {
+    color: transparent;
+    position: absolute;
+    white-space: pre;
+    cursor: text;
+    transform-origin: 0% 0%;
+  }
+
+  /* Highlight Layer */
+  .highlightLayer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .hl-rect {
+    position: absolute;
+    mix-blend-mode: multiply;
+  }
+  .hl-rect.yellow { background-color: rgba(255, 235, 59, 0.5); }
+  .hl-rect.green { background-color: rgba(76, 175, 80, 0.5); }
+  .hl-rect.pink { background-color: rgba(233, 30, 99, 0.4); }
+  .hl-rect.blue { background-color: rgba(33, 150, 243, 0.4); }
+
+  /* Sidebar */
+  .reader-sidebar {
+    width: 320px;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-tabs-reader {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 0;
+  }
+
+  .nav-tabs-reader .nav-link {
+    flex: 1;
+    text-align: center;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 8px;
+    font-weight: 500;
+    font-size: 14px;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+  }
+
+  .nav-tabs-reader .nav-link.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  .sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  /* Highlight Toolbar Popup */
+  .highlight-toolbar {
+    position: absolute;
+    background: var(--bg-toast);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    padding: 8px;
+    display: none;
+    z-index: 100;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .color-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.1);
+    cursor: pointer;
+  }
+  .color-btn.yellow { background-color: #ffeb3b; }
+  .color-btn.green { background-color: #4caf50; }
+  .color-btn.pink { background-color: #e91e63; }
+  .color-btn.blue { background-color: #2196f3; }
+
+  .hl-action-btn {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  .hl-action-btn:hover { background: rgba(255,255,255,0.1); }
+
+  /* Annotation Cards */
+  .annotation-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-bottom: 12px;
+    cursor: pointer;
+  }
+  .annotation-card:hover { border-color: var(--primary); }
+  .annotation-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .annotation-text {
+    font-size: 14px;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    font-style: italic;
+    border-left: 3px solid var(--primary);
+    padding-left: 8px;
+  }
+  .annotation-note {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  
+  .bookmark-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  .bookmark-card:hover { border-color: var(--primary); }
+
+  /* Custom Modal (replaces native prompt/confirm) */
+  .reader-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .reader-modal-box {
+    background: var(--bg-toast);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 420px;
+    padding: 20px;
+  }
+
+  .reader-modal-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+  }
+
+  .reader-modal-message {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+  }
+
+  .reader-modal-box textarea {
+    width: 100%;
+    min-height: 100px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    padding: 10px;
+    font-size: 14px;
+    resize: vertical;
+    margin-bottom: 16px;
+  }
+
+  .reader-modal-box textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .reader-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  @media (max-width: 768px) {
+    .reader-layout {
+      flex-direction: column;
+      margin: 0;
+      height: calc(100vh - var(--topbar-h) - 20px);
+    }
+    .pdf-container {
+      flex: 3;
+      padding: 10px;
+    }
+    .reader-sidebar {
+      width: 100%;
+      flex: 2;
+      border-left: none;
+      border-top: 1px solid var(--border);
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'documents:detail' document.id %}" class="btn btn-outline-custom border-0 p-0 text-secondary">
+    <i class="bi bi-arrow-left me-1"></i> Back to Document Details
+  </a>
+</div>
+
+<div class="reader-layout">
+  <!-- PDF Container -->
+  <div class="pdf-container" id="pdf-container">
+    <div id="pdf-loading" class="text-center mt-5" style="color: var(--text-muted);">
+      <div class="spinner-border mb-3" role="status"></div>
+      <div>Loading PDF...</div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="reader-sidebar">
+    <div class="sidebar-header">
+      <div class="nav-tabs-reader">
+        <button class="nav-link active" onclick="switchTab('notes')">Notes & Highlights</button>
+        <button class="nav-link" onclick="switchTab('bookmarks')">Bookmarks</button>
+      </div>
+    </div>
+
+    <!-- Notes Tab -->
+    <div class="sidebar-content" id="tab-notes">
+      <input type="text" id="search-notes" class="form-control form-control-sm mb-3" placeholder="Search annotations...">
+      <div id="annotations-list">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+
+    <!-- Bookmarks Tab -->
+    <div class="sidebar-content" id="tab-bookmarks" style="display: none;">
+      <button class="btn btn-primary btn-sm w-100 mb-3" onclick="addBookmark()">
+        <i class="bi bi-bookmark-plus"></i> Bookmark Current View
+      </button>
+      <div id="bookmarks-list">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Highlight Toolbar -->
+<div class="highlight-toolbar" id="highlight-toolbar">
+  <div class="color-btn yellow" onclick="createHighlight('yellow')"></div>
+  <div class="color-btn green" onclick="createHighlight('green')"></div>
+  <div class="color-btn pink" onclick="createHighlight('pink')"></div>
+  <div class="color-btn blue" onclick="createHighlight('blue')"></div>
+  <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.2); margin: 0 4px;"></div>
+  <button class="hl-action-btn" onclick="createNotePrompt()">Add Note</button>
+</div>
+
+<!-- Note Input Modal (replaces native prompt()) -->
+<div class="reader-modal-overlay" id="note-modal">
+  <div class="reader-modal-box">
+    <div class="reader-modal-title">Add Note</div>
+    <textarea id="note-modal-textarea" placeholder="Write your note..."></textarea>
+    <div class="reader-modal-actions">
+      <button type="button" class="btn btn-sm btn-secondary" id="note-modal-cancel">Cancel</button>
+      <button type="button" class="btn btn-sm btn-primary" id="note-modal-save">Save Note</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal (replaces native confirm()) -->
+<div class="reader-modal-overlay" id="confirm-modal">
+  <div class="reader-modal-box">
+    <div class="reader-modal-title">Confirm</div>
+    <div class="reader-modal-message" id="confirm-modal-message"></div>
+    <div class="reader-modal-actions">
+      <button type="button" class="btn btn-sm btn-secondary" id="confirm-modal-cancel">Cancel</button>
+      <button type="button" class="btn btn-sm btn-danger" id="confirm-modal-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const docUrl = "{% url 'documents:download' document.id %}";
+  const docId = "{{ document.id }}";
+  const csrfToken = "{{ csrf_token }}";
+
+  let pdfDoc = null;
+  let pageScales = {}; 
+  let currentPageInView = 1;
+
+  // State
+  let annotationsData = { highlights: [], notes: [], bookmarks: [] };
+  let currentSelectionData = null; // Stores range info before creating highlight
+
+  // Initialize PDF
+  async function initPDF() {
+    try {
+      const loadingTask = pdfjsLib.getDocument(docUrl);
+      pdfDoc = await loadingTask.promise;
+      document.getElementById('pdf-loading').style.display = 'none';
+
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        await renderPage(i);
+      }
+      
+      // Fetch annotations
+      await loadAnnotations();
+
+      // Setup Intersection Observer for current page
+      setupScrollObserver();
+    } catch (err) {
+      console.error('Error loading PDF: ', err);
+      document.getElementById('pdf-loading').innerHTML = '<div class="text-danger">Failed to load PDF.</div>';
+    }
+  }
+
+  // PDF content streams often emit text items in whatever order they were
+  // drawn (e.g. column-by-column for tables/author grids), not visual
+  // reading order. The text layer's DOM order follows that emission order,
+  // and browser selection always follows DOM order — so dragging across
+  // such a region selects unrelated text far from the cursor. Re-sorting
+  // items into top-to-bottom, left-to-right order before they're rendered
+  // makes selection follow what's visually under the mouse.
+  function sortItemsIntoReadingOrder(items) {
+    // PDF user-space units. Superscript footnote markers (e.g. an author's
+    // "*") sit a few units above the baseline they belong to, but normal
+    // line leading is much larger — this comfortably separates the two.
+    const LINE_TOLERANCE = 4;
+
+    const withPos = items.map((item, idx) => ({
+      item,
+      idx,
+      x: item.transform ? item.transform[4] : 0,
+      y: item.transform ? item.transform[5] : 0
+    }));
+
+    // Walk top-to-bottom (higher PDF y = higher on the page) and chain
+    // items into the same visual line if they're close to the line's
+    // first item — a fixed-grid bucket would split items that happen to
+    // straddle a bucket boundary even though they belong on one line.
+    withPos.sort((a, b) => b.y - a.y || a.x - b.x);
+    const lines = [];
+    let lineAnchorY = null;
+    for (const entry of withPos) {
+      if (lines.length && Math.abs(entry.y - lineAnchorY) <= LINE_TOLERANCE) {
+        lines[lines.length - 1].push(entry);
+      } else {
+        lines.push([entry]);
+        lineAnchorY = entry.y;
+      }
+    }
+
+    const sorted = [];
+    for (const line of lines) {
+      line.sort((a, b) => a.x - b.x || a.idx - b.idx);
+      for (const entry of line) sorted.push(entry.item);
+    }
+
+    // Re-derive end-of-line flags to match the new visual grouping, since
+    // pdf.js inserts a <br> after any item with hasEOL=true.
+    let pos = 0;
+    for (const line of lines) {
+      pos += line.length;
+      for (let i = pos - line.length; i < pos; i++) {
+        if ('hasEOL' in sorted[i]) sorted[i].hasEOL = (i === pos - 1);
+      }
+    }
+    return sorted;
+  }
+
+  async function renderPage(pageNum) {
+    const page = await pdfDoc.getPage(pageNum);
+    const scale = 1.5;
+    const viewport = page.getViewport({ scale: scale });
+    pageScales[pageNum] = scale;
+
+    const container = document.getElementById('pdf-container');
+    
+    // Page Wrapper
+    const pageWrapper = document.createElement('div');
+    pageWrapper.className = 'page-wrapper';
+    pageWrapper.id = `page-wrapper-${pageNum}`;
+    pageWrapper.style.width = viewport.width + 'px';
+    pageWrapper.style.height = viewport.height + 'px';
+    pageWrapper.dataset.pageNumber = pageNum;
+    
+    // Canvas
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    pageWrapper.appendChild(canvas);
+
+    // Text Layer
+    const textLayerDiv = document.createElement('div');
+    textLayerDiv.className = 'textLayer';
+    textLayerDiv.style.width = viewport.width + 'px';
+    textLayerDiv.style.height = viewport.height + 'px';
+    pageWrapper.appendChild(textLayerDiv);
+
+    // Highlight Layer
+    const highlightLayerDiv = document.createElement('div');
+    highlightLayerDiv.className = 'highlightLayer';
+    highlightLayerDiv.id = `highlight-layer-${pageNum}`;
+    pageWrapper.appendChild(highlightLayerDiv);
+
+    container.appendChild(pageWrapper);
+
+    // Render Canvas
+    const renderContext = {
+      canvasContext: context,
+      viewport: viewport
+    };
+    await page.render(renderContext).promise;
+
+    // Render Text Layer
+    const textContent = await page.getTextContent();
+    textContent.items = sortItemsIntoReadingOrder(textContent.items);
+    await pdfjsLib.renderTextLayer({
+      textContentSource: textContent,
+      container: textLayerDiv,
+      viewport: viewport
+    }).promise;
+
+    // pdf.js text spans are absolutely positioned with gaps between lines/words.
+    // Without this overlay (the same technique pdf.js's own TextLayerBuilder uses),
+    // dragging a selection through those gaps makes the browser snap the
+    // anchor/focus to the wrong span, so the wrong words get selected.
+    bindTextLayerSelection(textLayerDiv);
+  }
+
+  function bindTextLayerSelection(div) {
+    const endOfContent = document.createElement('div');
+    endOfContent.className = 'endOfContent';
+    div.appendChild(endOfContent);
+
+    div.addEventListener('mousedown', (evt) => {
+      const adjustTop = evt.target !== div;
+      if (adjustTop) {
+        const divBounds = div.getBoundingClientRect();
+        const ratio = Math.max(0, (evt.pageY - divBounds.top) / divBounds.height);
+        endOfContent.style.top = (ratio * 100).toFixed(2) + '%';
+      }
+      endOfContent.classList.add('active');
+    });
+
+    div.addEventListener('mouseup', () => {
+      endOfContent.style.top = '';
+      endOfContent.classList.remove('active');
+    });
+  }
+
+  // Annotation API
+  async function loadAnnotations() {
+    try {
+      const res = await fetch(`/documents/${docId}/annotations/`);
+      const data = await res.json();
+      if (data.success) {
+        annotationsData = data;
+        renderAnnotationsList();
+        renderBookmarksList();
+        drawAllHighlights();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Draw highlights on PDF
+  function drawAllHighlights() {
+    // Clear existing
+    document.querySelectorAll('.highlightLayer').forEach(el => el.innerHTML = '');
+
+    annotationsData.highlights.forEach(hl => {
+      const layer = document.getElementById(`highlight-layer-${hl.page_number}`);
+      if (!layer) return;
+
+      const scale = pageScales[hl.page_number];
+      
+      hl.position_data.rects.forEach(rect => {
+        const div = document.createElement('div');
+        div.className = `hl-rect ${hl.color}`;
+        div.style.left = (rect.x1 * scale) + 'px';
+        div.style.top = (rect.y1 * scale) + 'px';
+        div.style.width = ((rect.x2 - rect.x1) * scale) + 'px';
+        div.style.height = ((rect.y2 - rect.y1) * scale) + 'px';
+        layer.appendChild(div);
+      });
+    });
+  }
+
+  // Sidebar UI
+  function switchTab(tab) {
+    document.querySelectorAll('.nav-tabs-reader .nav-link').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.nav-tabs-reader .nav-link[onclick="switchTab('${tab}')"]`).classList.add('active');
+    
+    document.getElementById('tab-notes').style.display = tab === 'notes' ? 'block' : 'none';
+    document.getElementById('tab-bookmarks').style.display = tab === 'bookmarks' ? 'block' : 'none';
+  }
+
+  function renderAnnotationsList(filterText = '') {
+    const listEl = document.getElementById('annotations-list');
+    listEl.innerHTML = '';
+
+    let items = [];
+    const shownNoteIds = new Set();
+
+    // Combine highlights and notes for the list
+    annotationsData.highlights.forEach(hl => {
+      // Check if there's a note for this highlight
+      const note = annotationsData.notes.find(n => n.highlight_id === hl.id);
+
+      // If filtering, check text match
+      if (filterText) {
+        const textMatch = hl.text.toLowerCase().includes(filterText.toLowerCase());
+        const noteMatch = note && note.content.toLowerCase().includes(filterText.toLowerCase());
+        if (!textMatch && !noteMatch) return;
+      }
+
+      if (note) shownNoteIds.add(note.id);
+      items.push({
+        type: 'highlight',
+        data: hl,
+        note: note
+      });
+    });
+
+    // Add any note not already shown above — standalone notes, or notes whose
+    // attached highlight didn't match the current filter/load (e.g. a search
+    // matching the note's own content but not the highlighted text).
+    annotationsData.notes.filter(n => !shownNoteIds.has(n.id)).forEach(note => {
+      if (filterText && !note.content.toLowerCase().includes(filterText.toLowerCase())) return;
+      items.push({
+        type: 'note',
+        data: note
+      });
+    });
+
+    // Sort by page number then date
+    items.sort((a, b) => {
+      if (a.data.page_number !== b.data.page_number) return a.data.page_number - b.data.page_number;
+      return new Date(a.data.created_at) - new Date(b.data.created_at);
+    });
+
+    if (items.length === 0) {
+      listEl.innerHTML = '<div class="text-muted text-center mt-4">No annotations found.</div>';
+      return;
+    }
+
+    items.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'annotation-card';
+      card.onclick = () => scrollToPage(item.data.page_number);
+
+      const header = document.createElement('div');
+      header.className = 'annotation-header';
+      header.innerHTML = `<span>Page ${item.data.page_number}</span>
+                          <button class="btn-close" style="font-size:10px" onclick="deleteAnnotation(event, '${item.type}', ${item.data.id})"></button>`;
+      card.appendChild(header);
+
+      if (item.type === 'highlight') {
+        const text = document.createElement('div');
+        text.className = 'annotation-text';
+        text.style.borderLeftColor = getHexColor(item.data.color);
+        text.textContent = `"${item.data.text}"`;
+        card.appendChild(text);
+
+        if (item.note) {
+          const noteEl = document.createElement('div');
+          noteEl.className = 'annotation-note mt-2';
+          noteEl.innerHTML = `<strong>Note:</strong> ${item.note.content}`;
+          card.appendChild(noteEl);
+        } else {
+          const addBtn = document.createElement('button');
+          addBtn.className = 'btn btn-sm btn-link p-0 mt-1';
+          addBtn.textContent = '+ Add Note';
+          addBtn.onclick = (e) => { e.stopPropagation(); promptAddNote(item.data.id, item.data.page_number); };
+          card.appendChild(addBtn);
+        }
+      } else {
+        const noteEl = document.createElement('div');
+        noteEl.className = 'annotation-note';
+        noteEl.innerHTML = `<strong>Note:</strong> ${item.data.content}`;
+        card.appendChild(noteEl);
+      }
+
+      listEl.appendChild(card);
+    });
+  }
+
+  function getHexColor(name) {
+    const map = { yellow: '#ffeb3b', green: '#4caf50', pink: '#e91e63', blue: '#2196f3' };
+    return map[name] || map.yellow;
+  }
+
+  function renderBookmarksList() {
+    const listEl = document.getElementById('bookmarks-list');
+    listEl.innerHTML = '';
+
+    if (annotationsData.bookmarks.length === 0) {
+      listEl.innerHTML = '<div class="text-muted text-center mt-4">No bookmarks yet.</div>';
+      return;
+    }
+
+    annotationsData.bookmarks.sort((a,b) => a.page_number - b.page_number).forEach(bm => {
+      const card = document.createElement('div');
+      card.className = 'bookmark-card';
+      card.onclick = () => scrollToPage(bm.page_number);
+      
+      card.innerHTML = `
+        <div>
+          <i class="bi bi-bookmark-fill text-primary me-2"></i>
+          <span class="fw-bold">${bm.title}</span>
+        </div>
+        <button class="btn-close" style="font-size:10px" onclick="deleteBookmark(event, ${bm.page_number})"></button>
+      `;
+      listEl.appendChild(card);
+    });
+  }
+
+  function scrollToPage(pageNum) {
+    const wrapper = document.getElementById(`page-wrapper-${pageNum}`);
+    if (wrapper) {
+      wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  // --- Search ---
+  document.getElementById('search-notes').addEventListener('input', async function(e) {
+    const q = e.target.value.trim();
+    if (q.length > 0) {
+      const res = await fetch(`/documents/${docId}/notes/search/?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (data.success) {
+        // Temporarily override data just for rendering list
+        const backup = {...annotationsData};
+        annotationsData.highlights = data.highlights;
+        annotationsData.notes = data.notes;
+        renderAnnotationsList();
+        annotationsData = backup; // Restore
+      }
+    } else {
+      renderAnnotationsList();
+    }
+  });
+
+  // --- Text Selection & Highlighting Logic ---
+  const pdfContainer = document.getElementById('pdf-container');
+  const toolbar = document.getElementById('highlight-toolbar');
+
+  pdfContainer.addEventListener('mouseup', function(e) {
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection.isCollapsed && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const text = selection.toString().trim();
+        
+        if (text.length > 0) {
+          // Find which page we are on by traversing up to page-wrapper
+          let node = range.startContainer;
+          let pageWrapper = null;
+          while (node && node !== document.body) {
+            if (node.classList && node.classList.contains('page-wrapper')) {
+              pageWrapper = node;
+              break;
+            }
+            node = node.parentNode;
+          }
+
+          if (pageWrapper) {
+            const pageNum = parseInt(pageWrapper.dataset.pageNumber);
+            const scale = pageScales[pageNum];
+            const pageRect = pageWrapper.getBoundingClientRect();
+            
+            // Get all rects in the selection
+            const clientRects = Array.from(range.getClientRects());
+            
+            // Convert to PDF coordinates (relative to unscaled page)
+            const normalizedRects = clientRects.map(r => {
+              return {
+                x1: (r.left - pageRect.left) / scale,
+                y1: (r.top - pageRect.top) / scale,
+                x2: (r.right - pageRect.left) / scale,
+                y2: (r.bottom - pageRect.top) / scale,
+                page: pageNum
+              };
+            });
+
+            currentSelectionData = {
+              text: text,
+              page_number: pageNum,
+              rects: normalizedRects
+            };
+
+            // Show toolbar near mouse
+            toolbar.style.display = 'flex';
+            toolbar.style.left = (e.pageX + 10) + 'px';
+            toolbar.style.top = (e.pageY - 40) + 'px';
+            return;
+          }
+        }
+      }
+      toolbar.style.display = 'none';
+    }, 10);
+  });
+
+  document.addEventListener('mousedown', function(e) {
+    if (!toolbar.contains(e.target) && !e.target.closest('.textLayer')) {
+      toolbar.style.display = 'none';
+      window.getSelection().removeAllRanges();
+    }
+  });
+
+  async function createHighlight(color) {
+    if (!currentSelectionData) return;
+    toolbar.style.display = 'none';
+
+    const payload = {
+      page_number: currentSelectionData.page_number,
+      text: currentSelectionData.text,
+      color: color,
+      position_data: { rects: currentSelectionData.rects, selected_text: currentSelectionData.text }
+    };
+
+    try {
+      const res = await fetch(`/documents/${docId}/highlights/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        annotationsData.highlights.push(data.highlight);
+        drawAllHighlights();
+        renderAnnotationsList();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    window.getSelection().removeAllRanges();
+  }
+
+  // --- Custom Modal Helpers (replace native prompt()/confirm()) ---
+  function showNoteModal() {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('note-modal');
+      const textarea = document.getElementById('note-modal-textarea');
+      const saveBtn = document.getElementById('note-modal-save');
+      const cancelBtn = document.getElementById('note-modal-cancel');
+
+      textarea.value = '';
+      modal.style.display = 'flex';
+      textarea.focus();
+
+      function cleanup(result) {
+        modal.style.display = 'none';
+        saveBtn.removeEventListener('click', onSave);
+        cancelBtn.removeEventListener('click', onCancel);
+        resolve(result);
+      }
+      function onSave() { cleanup(textarea.value.trim() || null); }
+      function onCancel() { cleanup(null); }
+
+      saveBtn.addEventListener('click', onSave);
+      cancelBtn.addEventListener('click', onCancel);
+    });
+  }
+
+  function showConfirmModal(message) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('confirm-modal');
+      const okBtn = document.getElementById('confirm-modal-ok');
+      const cancelBtn = document.getElementById('confirm-modal-cancel');
+
+      document.getElementById('confirm-modal-message').textContent = message;
+      modal.style.display = 'flex';
+
+      function cleanup(result) {
+        modal.style.display = 'none';
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        resolve(result);
+      }
+      function onOk() { cleanup(true); }
+      function onCancel() { cleanup(false); }
+
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+    });
+  }
+
+  async function createNotePrompt() {
+    if (!currentSelectionData) return;
+    toolbar.style.display = 'none';
+    const content = await showNoteModal();
+    if (content) {
+      // First create highlight with default color (yellow)
+      const payloadHL = {
+        page_number: currentSelectionData.page_number,
+        text: currentSelectionData.text,
+        color: 'yellow',
+        position_data: { rects: currentSelectionData.rects, selected_text: currentSelectionData.text }
+      };
+
+      fetch(`/documents/${docId}/highlights/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify(payloadHL)
+      }).then(res => res.json()).then(data => {
+        if (data.success) {
+          annotationsData.highlights.push(data.highlight);
+          drawAllHighlights();
+
+          // Then create note linked to it
+          createNote(content, data.highlight.page_number, data.highlight.id);
+        }
+      });
+    }
+    window.getSelection().removeAllRanges();
+  }
+
+  async function promptAddNote(highlightId, pageNum) {
+    const content = await showNoteModal();
+    if (content) {
+      createNote(content, pageNum, highlightId);
+    }
+  }
+
+  async function createNote(content, pageNum, highlightId=null) {
+    try {
+      const payload = {
+        page_number: pageNum,
+        content: content,
+        highlight_id: highlightId
+      };
+      const res = await fetch(`/documents/${docId}/notes/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        annotationsData.notes.push(data.note);
+        renderAnnotationsList();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function deleteAnnotation(e, type, id) {
+    e.stopPropagation();
+    const confirmed = await showConfirmModal(`Delete this ${type}?`);
+    if (!confirmed) return;
+
+    try {
+      const url = `/documents/${docId}/${type}s/${id}/delete/`;
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': csrfToken }
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (type === 'highlight') {
+          annotationsData.highlights = annotationsData.highlights.filter(h => h.id !== id);
+          // Backend SET_NULLs the note's highlight FK rather than deleting it —
+          // mirror that here instead of dropping the note from view.
+          annotationsData.notes.forEach(n => { if (n.highlight_id === id) n.highlight_id = null; });
+          drawAllHighlights();
+        } else {
+          annotationsData.notes = annotationsData.notes.filter(n => n.id !== id);
+        }
+        renderAnnotationsList();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // --- Bookmarks Logic ---
+  async function addBookmark() {
+    try {
+      const payload = {
+        action: 'add',
+        page_number: currentPageInView,
+        title: `Page ${currentPageInView}`
+      };
+      const res = await fetch(`/documents/${docId}/bookmarks/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Prevent dupes locally if rapidly clicked
+        if (!annotationsData.bookmarks.find(b => b.page_number === currentPageInView)) {
+          annotationsData.bookmarks.push(data.bookmark);
+          renderBookmarksList();
+        }
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  async function deleteBookmark(e, pageNum) {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/documents/${docId}/bookmarks/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ action: 'remove', page_number: pageNum })
+      });
+      const data = await res.json();
+      if (data.success) {
+        annotationsData.bookmarks = annotationsData.bookmarks.filter(b => b.page_number !== pageNum);
+        renderBookmarksList();
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  // Track current page in view using Intersection Observer
+  function setupScrollObserver() {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          currentPageInView = parseInt(entry.target.dataset.pageNumber);
+        }
+      });
+    }, {
+      root: document.getElementById('pdf-container'),
+      threshold: 0.5 // trigger when page is 50% visible
+    });
+
+    document.querySelectorAll('.page-wrapper').forEach(page => observer.observe(page));
+  }
+
+  // Init
+  initPDF();
+</script>
+{% endblock %}

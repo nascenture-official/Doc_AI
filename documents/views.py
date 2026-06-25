@@ -11,7 +11,9 @@ from django.views.decorators.csrf import csrf_protect
 
 from django_q.tasks import async_task
 
-from .models import Document, Folder
+from .models import Document, Folder, DocumentComparison, Bookmark, Highlight, Note
+from django.db.models import Q
+import json
 from .services.vector_store import delete_vector_index
 
 DOCUMENTS_PAGE_SIZE = 12
@@ -144,10 +146,14 @@ class DocumentDetailView(LoginRequiredMixin, View):
     template_name = "documents/detail.html"
 
     def get(self, request, pk):
+        from documents.models import TRANSLATION_LANGUAGES
         doc = get_object_or_404(Document, pk=pk, user=request.user)
+        all_documents = Document.objects.filter(user=request.user).exclude(id=doc.id).order_by('-uploaded_at')
         return render(request, self.template_name, {
             "document": doc,
+            "all_documents": all_documents,
             "page_title": f"Document: {doc.title}",
+            "translation_languages": TRANSLATION_LANGUAGES,
         })
 
 class DocumentDeleteView(LoginRequiredMixin, View):
@@ -237,6 +243,55 @@ class SummaryStatusAjaxView(LoginRequiredMixin, View):
         else:
             return JsonResponse({"success": True, "status": "processing"})
 
+
+class TranslateDocumentAjaxView(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to trigger document translation.
+    """
+    login_url = "/accounts/login/"
+
+    def post(self, request, pk):
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        language = request.POST.get('language')
+        
+        from documents.models import TRANSLATION_LANGUAGES
+        if language not in dict(TRANSLATION_LANGUAGES).keys():
+            return JsonResponse({"success": False, "error": "Invalid language selected."}, status=400)
+            
+        try:
+            async_task(
+                'documents.tasks.translate_document_task',
+                doc.id,
+                language,
+                task_name=f"translate_doc_{doc.id}_{language}"
+            )
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+class TranslationStatusAjaxView(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to poll for translation status.
+    """
+    login_url = "/accounts/login/"
+
+    def get(self, request, pk):
+        from documents.templatetags.markdown_extras import markdown_to_html
+        from documents.models import DocumentTranslation
+        
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        language = request.GET.get('language')
+        
+        try:
+            translation = DocumentTranslation.objects.get(document=doc, language=language)
+            if translation.status == 'ready' and translation.translated_text:
+                return JsonResponse({"success": True, "content": markdown_to_html(translation.translated_text)})
+            elif translation.status == 'failed':
+                return JsonResponse({"success": False, "error": translation.error_message or "Translation failed."})
+            else:
+                return JsonResponse({"success": True, "status": "processing"})
+        except DocumentTranslation.DoesNotExist:
+            return JsonResponse({"success": True, "status": "processing"})
 
 # ─── Folder Views ─────────────────────────────────────────────────────────────
 
@@ -587,4 +642,386 @@ class UnassignedDocumentsAjaxView(LoginRequiredMixin, View):
         return JsonResponse({
             'documents': data,
             'has_next': page_obj.has_next()
+        })
+
+
+class RewriteContentAjaxView(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to trigger on-demand document rewriting.
+    """
+    login_url = "/accounts/login/"
+
+    def post(self, request, pk):
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        style = request.POST.get('style')
+        
+        valid_styles = ['Simplified', 'Formal', 'Academic', 'Casual']
+        if style not in valid_styles:
+            return JsonResponse({"success": False, "error": "Invalid rewrite style."}, status=400)
+            
+        try:
+            # Clear previous result
+            doc.rewrite_content = None
+            doc.rewrite_style = style
+            doc.save()
+            
+            async_task(
+                'documents.tasks.rewrite_content_task',
+                doc.id,
+                style,
+                task_name=f"rewrite_{doc.id}_{style}"
+            )
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+class RewriteStatusAjaxView(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to poll for rewrite status.
+    """
+    login_url = "/accounts/login/"
+
+    def get(self, request, pk):
+        from documents.templatetags.markdown_extras import markdown_to_html
+        
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        content = doc.rewrite_content
+            
+        if content:
+            if content.startswith("Failed to rewrite"):
+                return JsonResponse({"success": False, "error": content})
+            return JsonResponse({"success": True, "content": markdown_to_html(content)})
+        else:
+            return JsonResponse({"success": True, "status": "processing"})
+
+
+class ExtractKeyPointsAjaxView(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to trigger on-demand key points extraction.
+    """
+    login_url = "/accounts/login/"
+
+    def post(self, request, pk):
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+            
+        try:
+            # Clear previous result
+            doc.key_points = None
+            doc.save()
+            
+            async_task(
+                'documents.tasks.extract_key_points_task',
+                doc.id,
+                task_name=f"extract_key_points_{doc.id}"
+            )
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+class KeyPointsStatusAjaxView(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to poll for key points status.
+    """
+    login_url = "/accounts/login/"
+
+    def get(self, request, pk):
+        from documents.templatetags.markdown_extras import markdown_to_html
+        
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        content = doc.key_points
+            
+        if content:
+            if content.startswith("Failed to extract"):
+                return JsonResponse({"success": False, "error": content})
+            return JsonResponse({"success": True, "content": markdown_to_html(content)})
+        else:
+            return JsonResponse({"success": True, "status": "processing"})
+
+
+class GenerateFAQsAjaxView(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to trigger on-demand FAQs generation.
+    """
+    login_url = "/accounts/login/"
+
+    def post(self, request, pk):
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+            
+        try:
+            # Clear previous result
+            doc.faqs = None
+            doc.save()
+            
+            async_task(
+                'documents.tasks.generate_faqs_task',
+                doc.id,
+                task_name=f"generate_faqs_{doc.id}"
+            )
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+class FAQsStatusAjaxView(LoginRequiredMixin, View):
+    """
+    Handles AJAX requests to poll for FAQs status.
+    """
+    login_url = "/accounts/login/"
+
+    def get(self, request, pk):
+        from documents.templatetags.markdown_extras import markdown_to_html
+        
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        content = doc.faqs
+            
+        if content:
+            if content.startswith("Failed to generate"):
+                return JsonResponse({"success": False, "error": content})
+            return JsonResponse({"success": True, "content": markdown_to_html(content)})
+        else:
+            return JsonResponse({"success": True, "status": "processing"})
+
+class DocumentCompareCreateView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        document_base = get_object_or_404(Document, pk=pk, user=request.user)
+        compare_doc_id = request.POST.get('compare_doc_id')
+        
+        if not compare_doc_id:
+            messages.error(request, "Please select a document to compare with.")
+            return redirect('documents:detail', pk=pk)
+            
+        document_compare = get_object_or_404(Document, pk=compare_doc_id, user=request.user)
+        
+        if document_base == document_compare:
+            messages.error(request, "Cannot compare a document with itself.")
+            return redirect('documents:detail', pk=pk)
+
+        comparison, created = DocumentComparison.objects.get_or_create(
+            user=request.user,
+            document_base=document_base,
+            document_compare=document_compare
+        )
+        
+        comparison.status = 'processing'
+        comparison.save()
+        async_task('documents.tasks.compare_documents_task', comparison.id)
+            
+        from django.urls import reverse
+        return redirect('documents:comparison_detail', comparison_id=comparison.id)
+
+class ComparisonDetailView(LoginRequiredMixin, View):
+    template_name = "documents/document_compare.html"
+    
+    def get(self, request, comparison_id):
+        comparison = get_object_or_404(DocumentComparison, pk=comparison_id, user=request.user)
+        return render(request, self.template_name, {'comparison': comparison})
+
+class ComparisonStatusAjaxView(LoginRequiredMixin, View):
+    def get(self, request, comparison_id):
+        comparison = get_object_or_404(DocumentComparison, pk=comparison_id, user=request.user)
+        if comparison.status == 'processing':
+            return render(request, 'documents/partials/compare_loading.html', {'comparison': comparison})
+        elif comparison.status == 'failed':
+            return render(request, 'documents/partials/compare_failed.html', {'comparison': comparison})
+        else:
+            from django.http import HttpResponse
+            response = HttpResponse()
+            from django.urls import reverse
+            response['HX-Redirect'] = request.build_absolute_uri(reverse('documents:comparison_detail', args=[comparison.id]))
+            return response
+
+
+# ─── Reader & Annotations Views ───────────────────────────────────────────────
+
+class DocumentReaderView(LoginRequiredMixin, View):
+    """
+    Renders the full-screen PDF reader and annotations sidebar.
+    """
+    login_url = "/accounts/login/"
+    template_name = "documents/reader.html"
+
+    def get(self, request, pk):
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        return render(request, self.template_name, {
+            "document": doc,
+            "page_title": f"Reading: {doc.title}"
+        })
+
+
+class AnnotationsAjaxView(LoginRequiredMixin, View):
+    """
+    Returns all bookmarks, highlights, and notes for a document.
+    """
+    def get(self, request, pk):
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        
+        bookmarks = list(doc.bookmarks.filter(user=request.user).values(
+            'id', 'page_number', 'title', 'created_at'
+        ))
+        
+        highlights = list(doc.highlights.filter(user=request.user).values(
+            'id', 'page_number', 'text', 'color', 'position_data', 'created_at', 'updated_at'
+        ))
+        
+        notes = list(doc.notes.filter(user=request.user).values(
+            'id', 'page_number', 'content', 'highlight_id', 'created_at', 'updated_at'
+        ))
+
+        return JsonResponse({
+            "success": True,
+            "bookmarks": bookmarks,
+            "highlights": highlights,
+            "notes": notes
+        })
+
+
+class BookmarksAjaxView(LoginRequiredMixin, View):
+    """
+    Add or remove a bookmark.
+    """
+    def post(self, request, pk):
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        try:
+            data = json.loads(request.body)
+            action = data.get('action')
+            page_number = int(data.get('page_number'))
+            
+            if action == 'add':
+                title = data.get('title', f'Page {page_number}')
+                bookmark, created = Bookmark.objects.get_or_create(
+                    document=doc, user=request.user, page_number=page_number,
+                    defaults={'title': title}
+                )
+                return JsonResponse({
+                    "success": True, 
+                    "bookmark": {
+                        "id": bookmark.id,
+                        "page_number": bookmark.page_number,
+                        "title": bookmark.title,
+                        "created_at": bookmark.created_at
+                    }
+                })
+            elif action == 'remove':
+                Bookmark.objects.filter(document=doc, user=request.user, page_number=page_number).delete()
+                return JsonResponse({"success": True})
+            return JsonResponse({"success": False, "error": "Invalid action"}, status=400)
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+class HighlightsAjaxView(LoginRequiredMixin, View):
+    """
+    Add or delete highlights.
+    """
+    def post(self, request, pk):
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        try:
+            data = json.loads(request.body)
+            page_number = int(data.get('page_number'))
+            text = data.get('text', '')
+            color = data.get('color', 'yellow')
+            position_data = data.get('position_data', {})
+            
+            highlight = Highlight.objects.create(
+                document=doc,
+                user=request.user,
+                page_number=page_number,
+                text=text,
+                color=color,
+                position_data=position_data
+            )
+            return JsonResponse({
+                "success": True,
+                "highlight": {
+                    "id": highlight.id,
+                    "page_number": highlight.page_number,
+                    "text": highlight.text,
+                    "color": highlight.color,
+                    "position_data": highlight.position_data,
+                    "created_at": highlight.created_at,
+                    "updated_at": highlight.updated_at
+                }
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+    def delete(self, request, pk, highlight_id):
+        Highlight.objects.filter(id=highlight_id, document_id=pk, user=request.user).delete()
+        return JsonResponse({"success": True})
+
+
+class NotesAjaxView(LoginRequiredMixin, View):
+    """
+    Add, edit, or delete notes.
+    """
+    def post(self, request, pk):
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        try:
+            data = json.loads(request.body)
+            note_id = data.get('id')
+            page_number = int(data.get('page_number'))
+            content = data.get('content', '')
+            highlight_id = data.get('highlight_id')
+            
+            if note_id:
+                note = get_object_or_404(Note, id=note_id, document=doc, user=request.user)
+                note.content = content
+                note.save()
+            else:
+                highlight = Highlight.objects.filter(id=highlight_id, user=request.user).first() if highlight_id else None
+                note = Note.objects.create(
+                    document=doc,
+                    user=request.user,
+                    page_number=page_number,
+                    content=content,
+                    highlight=highlight
+                )
+            return JsonResponse({
+                "success": True,
+                "note": {
+                    "id": note.id,
+                    "page_number": note.page_number,
+                    "content": note.content,
+                    "highlight_id": note.highlight_id,
+                    "created_at": note.created_at,
+                    "updated_at": note.updated_at
+                }
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+    def delete(self, request, pk, note_id):
+        Note.objects.filter(id=note_id, document_id=pk, user=request.user).delete()
+        return JsonResponse({"success": True})
+
+
+class NotesSearchAjaxView(LoginRequiredMixin, View):
+    """
+    Search notes and highlights.
+    """
+    def get(self, request, pk):
+        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        q = request.GET.get('q', '').strip()
+        
+        if not q:
+            return JsonResponse({"success": True, "notes": [], "highlights": []})
+            
+        # Search Notes (and Notes attached to highlights)
+        notes_qs = Note.objects.filter(
+            Q(content__icontains=q) | Q(highlight__text__icontains=q),
+            document=doc, user=request.user
+        ).values('id', 'page_number', 'content', 'highlight_id', 'created_at', 'updated_at')
+        
+        # Search Highlights directly (that might not have a note)
+        highlights_qs = Highlight.objects.filter(
+            Q(text__icontains=q),
+            document=doc, user=request.user
+        ).values('id', 'page_number', 'text', 'color', 'position_data', 'created_at', 'updated_at')
+        
+        return JsonResponse({
+            "success": True,
+            "notes": list(notes_qs),
+            "highlights": list(highlights_qs)
         })

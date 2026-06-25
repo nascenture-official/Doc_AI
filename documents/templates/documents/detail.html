@@ -45,7 +45,12 @@
     font-weight: 700;
     color: var(--text-primary);
     margin: 0 0 8px 0;
-    word-break: break-all;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
   }
 
   .doc-meta-grid {
@@ -172,10 +177,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 10px 20px;
+    width: 42px;
+    height: 42px;
     border-radius: var(--radius-sm);
-    font-size: 14.5px;
+    font-size: 17px;
     font-weight: 500;
     transition: all var(--transition);
     cursor: pointer;
@@ -201,8 +206,9 @@
   }
 
   .btn-download:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+    background: var(--bg-card-hover);
+    border-color: var(--border);
+    color: var(--text-primary);
   }
 
   .btn-delete-lg {
@@ -247,26 +253,27 @@
     .detail-card {
       padding: 20px;
     }
+
     .detail-header-section {
       flex-direction: column;
       align-items: stretch;
       gap: 16px;
     }
+
     .doc-meta-info h2 {
       font-size: 18px;
     }
+
     .action-buttons-group {
       width: 100%;
-      flex-direction: column;
     }
-    .btn-action-lg {
-      width: 100%;
-    }
+
     .doc-icon-large {
       width: 60px;
       height: 60px;
       font-size: 32px;
     }
+
     .nav-tabs-custom {
       flex-wrap: nowrap;
       overflow-x: auto;
@@ -290,12 +297,12 @@
   <div class="detail-card">
     <!-- Header Section -->
     <div class="detail-header-section">
-      <div class="d-flex align-items-center gap-3">
+      <div class="d-flex align-items-center gap-3" style="flex: 1; min-width: 0;">
         <div class="doc-icon-large">
           <i class="bi bi-file-earmark-pdf-fill"></i>
         </div>
-        <div class="doc-meta-info">
-          <h2>{{ document.title }}</h2>
+        <div class="doc-meta-info" style="min-width: 0;">
+          <h2 title="{{ document.title }}">{{ document.title }}</h2>
           {% if document.status == 'ready' %}
           <span class="badge-status-detail ready">
             <i class="bi bi-check-circle-fill"></i> Ready for Chat
@@ -315,18 +322,24 @@
 
       <div class="action-buttons-group">
         {% if document.status == 'ready' %}
-        <a href="{% url 'chat:new' %}?doc={{ document.id }}" class="btn-action-lg btn-chat">
-          <i class="bi bi-chat-fill"></i> Chat with Document
+        <a href="{% url 'chat:new' %}?doc={{ document.id }}" class="btn-action-lg btn-chat" title="Chat with Document">
+          <i class="bi bi-chat-fill"></i>
         </a>
         {% endif %}
+        <a href="{% url 'documents:reader' document.id %}" class="btn-action-lg btn-download" title="Read Document">
+          <i class="bi bi-book"></i>
+        </a>
         <a href="{% url 'documents:download' document.id %}" class="btn-action-lg btn-download"
           title="Download Original PDF">
-          <i class="bi bi-download"></i> Download
+          <i class="bi bi-download"></i>
         </a>
+        <button type="button" class="btn-action-lg btn-download" data-bs-toggle="modal" data-bs-target="#compareDocModal" title="Compare with...">
+          <i class="bi bi-files"></i>
+        </button>
         <button type="button" class="btn-action-lg btn-delete-lg btn-delete-doc" data-id="{{ document.id }}"
           data-url="{% url 'documents:delete' document.id %}" data-title="{{ document.title }}" data-bs-toggle="modal"
-          data-bs-target="#deleteDocModal">
-          <i class="bi bi-trash"></i> Delete
+          data-bs-target="#deleteDocModal" title="Delete Document">
+          <i class="bi bi-trash"></i>
         </button>
       </div>
     </div>
@@ -378,6 +391,30 @@
           Detailed Summary
         </button>
       </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="translation-tab" data-bs-toggle="tab" data-bs-target="#translation" type="button"
+          role="tab" aria-controls="translation" aria-selected="false">
+          Translation
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="rewrite-tab" data-bs-toggle="tab" data-bs-target="#rewrite" type="button"
+          role="tab" aria-controls="rewrite" aria-selected="false">
+          <i class="bi bi-pencil-square d-none d-md-inline me-1"></i>Rewrite
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="key-points-tab" data-bs-toggle="tab" data-bs-target="#key-points" type="button"
+          role="tab" aria-controls="key-points" aria-selected="false">
+          <i class="bi bi-list-check d-none d-md-inline me-1"></i>Key Points
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="faqs-tab" data-bs-toggle="tab" data-bs-target="#faqs" type="button"
+          role="tab" aria-controls="faqs" aria-selected="false">
+          <i class="bi bi-question-circle d-none d-md-inline me-1"></i>FAQs
+        </button>
+      </li>
     </ul>
 
     <!-- Tab Contents -->
@@ -386,18 +423,19 @@
       <div class="tab-pane fade show active" id="short-summary" role="tabpanel" aria-labelledby="short-summary-tab">
         <div class="summary-container" id="short-summary-container">
           {% if document.status == 'ready' %}
-            {% if document.summary_short %}
-              <div class="summary-markdown">
-                {{ document.summary_short|markdown_to_html }}
-              </div>
-            {% else %}
-              <div class="text-center py-5" id="generate-short-wrapper">
-                <p class="text-muted mb-3">No short summary has been generated yet.</p>
-                <button type="button" class="btn btn-primary btn-generate-summary" data-type="short" data-doc-id="{{ document.id }}">
-                  <i class="bi bi-magic me-1"></i> Generate Short Summary
-                </button>
-              </div>
-            {% endif %}
+          {% if document.summary_short %}
+          <div class="summary-markdown">
+            {{ document.summary_short|markdown_to_html }}
+          </div>
+          {% else %}
+          <div class="text-center py-5" id="generate-short-wrapper">
+            <p class="text-muted mb-3">No short summary has been generated yet.</p>
+            <button type="button" class="btn btn-primary btn-generate-summary" data-type="short"
+              data-doc-id="{{ document.id }}">
+              <i class="bi bi-magic me-1"></i> Generate Short Summary
+            </button>
+          </div>
+          {% endif %}
           {% elif document.status == 'failed' %}
           <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Summaries are unavailable because document
             processing failed.</p>
@@ -416,18 +454,19 @@
       <div class="tab-pane fade" id="detailed-summary" role="tabpanel" aria-labelledby="detailed-summary-tab">
         <div class="summary-container" id="detailed-summary-container">
           {% if document.status == 'ready' %}
-            {% if document.summary_long %}
-              <div class="summary-markdown">
-                {{ document.summary_long|markdown_to_html }}
-              </div>
-            {% else %}
-              <div class="text-center py-5" id="generate-detailed-wrapper">
-                <p class="text-muted mb-3">No detailed summary has been generated yet.</p>
-                <button type="button" class="btn btn-primary btn-generate-summary" data-type="detailed" data-doc-id="{{ document.id }}">
-                  <i class="bi bi-magic me-1"></i> Generate Detailed Summary
-                </button>
-              </div>
-            {% endif %}
+          {% if document.summary_long %}
+          <div class="summary-markdown">
+            {{ document.summary_long|markdown_to_html }}
+          </div>
+          {% else %}
+          <div class="text-center py-5" id="generate-detailed-wrapper">
+            <p class="text-muted mb-3">No detailed summary has been generated yet.</p>
+            <button type="button" class="btn btn-primary btn-generate-summary" data-type="detailed"
+              data-doc-id="{{ document.id }}">
+              <i class="bi bi-magic me-1"></i> Generate Detailed Summary
+            </button>
+          </div>
+          {% endif %}
           {% elif document.status == 'failed' %}
           <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Summaries are unavailable because document
             processing failed.</p>
@@ -441,15 +480,200 @@
           {% endif %}
         </div>
       </div>
+
+      <!-- Translation -->
+      <div class="tab-pane fade" id="translation" role="tabpanel" aria-labelledby="translation-tab">
+        <div class="summary-container" id="translation-container">
+          {% if document.status == 'ready' %}
+          <div class="d-flex gap-2 mb-4 justify-content-center align-items-center">
+            <div class="dropdown">
+              <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="translation-language-btn">
+                Select language...
+              </button>
+              <ul class="dropdown-menu" id="translation-language-menu">
+                {% for lang_code, lang_name in translation_languages %}
+                <li><a class="dropdown-item" href="#" data-value="{{ lang_code }}">{{ lang_name }}</a></li>
+                {% endfor %}
+              </ul>
+            </div>
+            <input type="hidden" id="translation-language" value="">
+            <button type="button" class="btn btn-primary" id="btn-translate-doc" data-doc-id="{{ document.id }}">
+              <i class="bi bi-translate me-1"></i> Translate
+            </button>
+          </div>
+          <div id="translation-result-wrapper">
+            <p class="text-center text-muted py-5">Select a language and click translate.</p>
+          </div>
+          {% elif document.status == 'failed' %}
+          <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Translation is unavailable because document
+            processing failed.</p>
+          {% else %}
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary mb-3" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-muted">Document is processing. Please wait...</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Rewrite -->
+      <div class="tab-pane fade" id="rewrite" role="tabpanel" aria-labelledby="rewrite-tab">
+        <div class="summary-container" id="rewrite-container">
+          {% if document.status == 'ready' %}
+          <div class="d-flex gap-2 mb-4 justify-content-center align-items-center">
+            <div class="dropdown">
+              <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="rewrite-style-btn">
+                Select style...
+              </button>
+              <ul class="dropdown-menu" id="rewrite-style-menu">
+                <li><a class="dropdown-item" href="#" data-value="Simplified">Simplified</a></li>
+                <li><a class="dropdown-item" href="#" data-value="Formal">Formal</a></li>
+                <li><a class="dropdown-item" href="#" data-value="Academic">Academic</a></li>
+                <li><a class="dropdown-item" href="#" data-value="Casual">Casual</a></li>
+              </ul>
+            </div>
+            <input type="hidden" id="rewrite-style" value="">
+            <button type="button" class="btn btn-primary" id="btn-rewrite-doc" data-doc-id="{{ document.id }}">
+              <i class="bi bi-pencil-square me-1"></i> <span class="btn-text">Rewrite Document</span>
+            </button>
+          </div>
+          <div id="rewrite-result-wrapper">
+            {% if document.rewrite_content %}
+              <div class="summary-markdown">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <span class="badge bg-secondary">Current Style: {{ document.rewrite_style }}</span>
+                  <button class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); showToast('Copied to clipboard!', 'success');"><i class="bi bi-clipboard"></i> Copy</button>
+                </div>
+                <div>{{ document.rewrite_content|markdown_to_html }}</div>
+              </div>
+            {% else %}
+              <p class="text-center text-muted py-5">Select a style and click Rewrite Document.</p>
+            {% endif %}
+          </div>
+          {% elif document.status == 'failed' %}
+          <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Rewrite is unavailable because document processing failed.</p>
+          {% else %}
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary mb-3" role="status"><span class="visually-hidden">Loading...</span></div>
+            <p class="text-muted">Document is processing. Please wait...</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Key Points -->
+      <div class="tab-pane fade" id="key-points" role="tabpanel" aria-labelledby="key-points-tab">
+        <div class="summary-container" id="key-points-container">
+          {% if document.status == 'ready' %}
+          <div class="d-flex mb-4 justify-content-center">
+            <button type="button" class="btn btn-primary" id="btn-extract-key-points" data-doc-id="{{ document.id }}">
+              <i class="bi bi-list-check me-1"></i> <span class="btn-text">{% if document.key_points %}Regenerate Key Points{% else %}Extract Key Points{% endif %}</span>
+            </button>
+          </div>
+          <div id="key-points-result-wrapper">
+            {% if document.key_points %}
+              <div class="summary-markdown">
+                <div class="text-end mb-2">
+                  <button class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); showToast('Copied to clipboard!', 'success');"><i class="bi bi-clipboard"></i> Copy</button>
+                </div>
+                <div>{{ document.key_points|markdown_to_html }}</div>
+              </div>
+            {% else %}
+              <p class="text-center text-muted py-5">Click Extract Key Points to generate a summary of important points.</p>
+            {% endif %}
+          </div>
+          {% elif document.status == 'failed' %}
+          <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Key Points extraction is unavailable because document processing failed.</p>
+          {% else %}
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary mb-3" role="status"><span class="visually-hidden">Loading...</span></div>
+            <p class="text-muted">Document is processing. Please wait...</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- FAQs -->
+      <div class="tab-pane fade" id="faqs" role="tabpanel" aria-labelledby="faqs-tab">
+        <div class="summary-container" id="faqs-container">
+          {% if document.status == 'ready' %}
+          <div class="d-flex mb-4 justify-content-center">
+            <button type="button" class="btn btn-primary" id="btn-generate-faqs" data-doc-id="{{ document.id }}">
+              <i class="bi bi-question-circle me-1"></i> <span class="btn-text">{% if document.faqs %}Regenerate FAQs{% else %}Generate FAQs{% endif %}</span>
+            </button>
+          </div>
+          <div id="faqs-result-wrapper">
+            {% if document.faqs %}
+              <div class="summary-markdown">
+                <div class="text-end mb-2">
+                  <button class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); showToast('Copied to clipboard!', 'success');"><i class="bi bi-clipboard"></i> Copy</button>
+                </div>
+                <div>{{ document.faqs|markdown_to_html }}</div>
+              </div>
+            {% else %}
+              <p class="text-center text-muted py-5">Click Generate FAQs to create a list of common questions and answers.</p>
+            {% endif %}
+          </div>
+          {% elif document.status == 'failed' %}
+          <p class="text-muted"><i class="bi bi-info-circle me-1"></i> FAQ generation is unavailable because document processing failed.</p>
+          {% else %}
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary mb-3" role="status"><span class="visually-hidden">Loading...</span></div>
+            <p class="text-muted">Document is processing. Please wait...</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
     </div>
 
   </div>
 </div>
+
+<!-- Compare Document Modal -->
+<div class="modal fade" id="compareDocModal" tabindex="-1" aria-labelledby="compareDocModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-toast); border:1px solid var(--border);">
+      <form action="{% url 'documents:compare_create' document.id %}" method="post">
+        {% csrf_token %}
+        <div class="modal-header border-bottom-0 pb-0">
+          <h5 class="modal-title fw-bold" id="compareDocModalLabel" style="color:var(--text-primary);">
+            <i class="bi bi-files me-2" style="color:var(--primary-light);"></i>Compare Document
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body py-4 text-center" style="color:var(--text-secondary);">
+          <i class="bi bi-files display-4 mb-3" style="color:var(--primary-light);"></i>
+          <p class="mb-4">Select another document to compare with <strong style="color:var(--text-primary);">{{ document.title }}</strong>.</p>
+          <div class="form-group text-start">
+            <label for="compare_doc_id" class="form-label fw-bold" style="color:var(--text-secondary);">Comparison Document</label>
+            <select class="form-select" name="compare_doc_id" id="compare_doc_id" required>
+              <option value="" disabled selected>Select a document...</option>
+              {% for doc in all_documents %}
+                <option value="{{ doc.id }}">{{ doc.title }}</option>
+              {% empty %}
+                <option value="" disabled>No other documents available</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer border-top-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-play-fill me-1"></i> Start Comparison
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-  $(function  () {
+  $(function () {
     // Delete Document logic (uses bootstrap modal confirmation)
     var deleteDocModal = document.getElementById('deleteDocModal');
     if (deleteDocModal) {
@@ -476,45 +700,45 @@
               'X-Requested-With': 'XMLHttpRequest',
             },
           })
-          .then(res => {
-            if (!res.ok) throw new Error('Server returned ' + res.status);
-            return res.json();
-          })
-          .then(data => {
-            const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
-            if (modalInstance) modalInstance.hide();
+            .then(res => {
+              if (!res.ok) throw new Error('Server returned ' + res.status);
+              return res.json();
+            })
+            .then(data => {
+              const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
+              if (modalInstance) modalInstance.hide();
 
-            if (data.success) {
-              window.location.href = "{% url 'documents:list' %}";
-            } else {
-              showToast(data.error || 'Failed to delete document.', 'danger');
-            }
-          })
-          .catch(err => {
-            console.error('Delete error:', err);
-            showToast('Something went wrong. Please try again.', 'danger');
-            const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
-            if (modalInstance) modalInstance.hide();
-          })
-          .finally(() => {
-            $confirmBtn.prop('disabled', false);
-            $('#deleteDocBtnText').show();
-            $('#deleteDocBtnLoader').hide();
-            $('#deleteDocCancelBtn').prop('disabled', false);
-            $('#deleteDocModalClose').prop('disabled', false);
-          });
+              if (data.success) {
+                window.location.href = "{% url 'documents:list' %}";
+              } else {
+                showToast(data.error || 'Failed to delete document.', 'danger');
+              }
+            })
+            .catch(err => {
+              console.error('Delete error:', err);
+              showToast('Something went wrong. Please try again.', 'danger');
+              const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
+              if (modalInstance) modalInstance.hide();
+            })
+            .finally(() => {
+              $confirmBtn.prop('disabled', false);
+              $('#deleteDocBtnText').show();
+              $('#deleteDocBtnLoader').hide();
+              $('#deleteDocCancelBtn').prop('disabled', false);
+              $('#deleteDocModalClose').prop('disabled', false);
+            });
         });
       });
     }
 
     // Generate Summary logic
-    $('.btn-generate-summary').on('click', function() {
+    $('.btn-generate-summary').on('click', function () {
       const btn = $(this);
       const summaryType = btn.data('type');
       const docId = btn.data('doc-id');
       const wrapper = $('#generate-' + summaryType + '-wrapper');
       const container = $('#' + summaryType + '-summary-container');
-      
+
       // Show loading
       wrapper.html(`
         <div class="text-center py-5">
@@ -524,7 +748,7 @@
           <p class="text-muted">Generating ${summaryType} summary. This may take a few moments...</p>
         </div>
       `);
-      
+
       // Trigger generation
       $.ajax({
         url: `/documents/${docId}/generate-summary/`,
@@ -535,14 +759,14 @@
         headers: {
           'X-CSRFToken': '{{ csrf_token }}'
         },
-        success: function(res) {
+        success: function (res) {
           if (res.success) {
             pollSummaryStatus(docId, summaryType, container);
           } else {
             wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Failed to start generation: ${res.error}</p>`);
           }
         },
-        error: function(err) {
+        error: function (err) {
           wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Error starting generation.</p>`);
         }
       });
@@ -556,7 +780,7 @@
           data: {
             'type': summaryType
           },
-          success: function(res) {
+          success: function (res) {
             if (res.success && res.content) {
               clearInterval(pollInterval);
               container.html(`<div class="summary-markdown">${res.content}</div>`);
@@ -566,9 +790,326 @@
             }
             // If processing, do nothing and wait for next interval
           },
-          error: function() {
+          error: function () {
             clearInterval(pollInterval);
             container.html(`<p class="text-danger py-4"><i class="bi bi-exclamation-triangle-fill"></i> Error checking status.</p>`);
+          }
+        });
+      }, 3000);
+    }
+
+    // Translation dropdown selection
+    $('#translation-language-menu .dropdown-item').on('click', function (e) {
+      e.preventDefault();
+      const val = $(this).data('value');
+      const text = $(this).text();
+      $('#translation-language').val(val);
+      $('#translation-language-btn').text(text);
+    });
+
+    // Translation logic
+    $('#btn-translate-doc').on('click', function () {
+      const btn = $(this);
+      const docId = btn.data('doc-id');
+      const language = $('#translation-language').val();
+      const wrapper = $('#translation-result-wrapper');
+
+      if (!language) {
+        wrapper.html(`<p class="text-danger mt-3 text-center"><i class="bi bi-exclamation-triangle-fill"></i> Please select a language first.</p>`);
+        return;
+      }
+
+      // Show loading
+      wrapper.html(`
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted">Translating document to ${$('#translation-language option:selected').text()}. This may take a few moments...</p>
+        </div>
+      `);
+
+      btn.prop('disabled', true);
+
+      $.ajax({
+        url: `/documents/${docId}/translate/`,
+        type: 'POST',
+        data: {
+          'language': language
+        },
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        success: function (res) {
+          if (res.success) {
+            pollTranslationStatus(docId, language, wrapper, btn);
+          } else {
+            wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Failed to start translation: ${res.error}</p>`);
+            btn.prop('disabled', false);
+          }
+        },
+        error: function (err) {
+          wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Error starting translation.</p>`);
+          btn.prop('disabled', false);
+        }
+      });
+    });
+
+    function pollTranslationStatus(docId, language, wrapper, btn) {
+      const pollInterval = setInterval(() => {
+        $.ajax({
+          url: `/documents/${docId}/translation-status/`,
+          type: 'GET',
+          data: {
+            'language': language
+          },
+          success: function (res) {
+            if (res.success && res.content) {
+              clearInterval(pollInterval);
+              wrapper.html(`<div class="summary-markdown">${res.content}</div>`);
+              btn.prop('disabled', false);
+            } else if (!res.success) {
+              clearInterval(pollInterval);
+              wrapper.html(`<p class="text-danger py-4"><i class="bi bi-exclamation-triangle-fill"></i> ${res.error}</p>`);
+              btn.prop('disabled', false);
+            }
+            // If processing, do nothing and wait for next interval
+          },
+          error: function () {
+            clearInterval(pollInterval);
+            wrapper.html(`<p class="text-danger py-4"><i class="bi bi-exclamation-triangle-fill"></i> Error checking status.</p>`);
+            btn.prop('disabled', false);
+          }
+        });
+      }, 4000);
+    }
+
+    // Rewrite dropdown selection
+    $('#rewrite-style-menu .dropdown-item').on('click', function (e) {
+      e.preventDefault();
+      const val = $(this).data('value');
+      const text = $(this).text();
+      $('#rewrite-style').val(val);
+      $('#rewrite-style-btn').text(text);
+    });
+
+    // Rewrite logic
+    $('#btn-rewrite-doc').on('click', function () {
+      const btn = $(this);
+      const docId = btn.data('doc-id');
+      const style = $('#rewrite-style').val();
+      const wrapper = $('#rewrite-result-wrapper');
+
+      if (!style) {
+        wrapper.html(`<p class="text-danger mt-3 text-center"><i class="bi bi-exclamation-triangle-fill"></i> Please select a style first.</p>`);
+        return;
+      }
+
+      wrapper.html(`
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted">Rewriting document in ${style} style. This may take a few moments...</p>
+        </div>
+      `);
+
+      btn.prop('disabled', true);
+
+      $.ajax({
+        url: `/documents/${docId}/rewrite/`,
+        type: 'POST',
+        data: { 'style': style },
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        success: function (res) {
+          if (res.success) {
+            pollRewriteStatus(docId, wrapper, btn);
+          } else {
+            wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Failed to start rewrite: ${res.error}</p>`);
+            btn.prop('disabled', false);
+          }
+        },
+        error: function (err) {
+          wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Error starting rewrite.</p>`);
+          btn.prop('disabled', false);
+        }
+      });
+    });
+
+    function pollRewriteStatus(docId, wrapper, btn) {
+      const pollInterval = setInterval(() => {
+        $.ajax({
+          url: `/documents/${docId}/rewrite-status/`,
+          type: 'GET',
+          success: function (res) {
+            if (res.success && res.content) {
+              clearInterval(pollInterval);
+              const style = $('#rewrite-style').val() || "Unknown";
+              wrapper.html(`
+                <div class="summary-markdown">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge bg-secondary">Current Style: ${style}</span>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); showToast('Copied to clipboard!', 'success');"><i class="bi bi-clipboard"></i> Copy</button>
+                  </div>
+                  <div>${res.content}</div>
+                </div>
+              `);
+              btn.prop('disabled', false);
+              btn.find('.btn-text').text("Rewrite Document");
+            } else if (!res.success) {
+              clearInterval(pollInterval);
+              wrapper.html(`<p class="text-danger py-4"><i class="bi bi-exclamation-triangle-fill"></i> ${res.error}</p>`);
+              btn.prop('disabled', false);
+              btn.find('.btn-text').text("Rewrite Document");
+            }
+          },
+          error: function () {
+            clearInterval(pollInterval);
+            wrapper.html(`<p class="text-danger py-4"><i class="bi bi-exclamation-triangle-fill"></i> Error checking status.</p>`);
+            btn.prop('disabled', false);
+            btn.find('.btn-text').text("Rewrite Document");
+          }
+        });
+      }, 3000);
+    }
+
+    // Key Points logic
+    $('#btn-extract-key-points').on('click', function () {
+      const btn = $(this);
+      const docId = btn.data('doc-id');
+      const wrapper = $('#key-points-result-wrapper');
+
+      wrapper.html(`
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted">Extracting key points. This may take a few moments...</p>
+        </div>
+      `);
+
+      btn.prop('disabled', true);
+
+      $.ajax({
+        url: `/documents/${docId}/extract-key-points/`,
+        type: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        success: function (res) {
+          if (res.success) {
+            pollKeyPointsStatus(docId, wrapper, btn);
+          } else {
+            wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Failed to start extraction: ${res.error}</p>`);
+            btn.prop('disabled', false);
+          }
+        },
+        error: function (err) {
+          wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Error starting extraction.</p>`);
+          btn.prop('disabled', false);
+        }
+      });
+    });
+
+    function pollKeyPointsStatus(docId, wrapper, btn) {
+      const pollInterval = setInterval(() => {
+        $.ajax({
+          url: `/documents/${docId}/key-points-status/`,
+          type: 'GET',
+          success: function (res) {
+            if (res.success && res.content) {
+              clearInterval(pollInterval);
+              wrapper.html(`
+                <div class="summary-markdown">
+                  <div class="text-end mb-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); showToast('Copied to clipboard!', 'success');"><i class="bi bi-clipboard"></i> Copy</button>
+                  </div>
+                  <div>${res.content}</div>
+                </div>
+              `);
+              btn.prop('disabled', false);
+              btn.find('.btn-text').text("Regenerate Key Points");
+            } else if (!res.success) {
+              clearInterval(pollInterval);
+              wrapper.html(`<p class="text-danger py-4"><i class="bi bi-exclamation-triangle-fill"></i> ${res.error}</p>`);
+              btn.prop('disabled', false);
+              btn.find('.btn-text').text("Extract Key Points");
+            }
+          },
+          error: function () {
+            clearInterval(pollInterval);
+            wrapper.html(`<p class="text-danger py-4"><i class="bi bi-exclamation-triangle-fill"></i> Error checking status.</p>`);
+            btn.prop('disabled', false);
+            btn.find('.btn-text').text("Extract Key Points");
+          }
+        });
+      }, 3000);
+    }
+
+    // FAQs logic
+    $('#btn-generate-faqs').on('click', function () {
+      const btn = $(this);
+      const docId = btn.data('doc-id');
+      const wrapper = $('#faqs-result-wrapper');
+
+      wrapper.html(`
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted">Generating FAQs. This may take a few moments...</p>
+        </div>
+      `);
+
+      btn.prop('disabled', true);
+
+      $.ajax({
+        url: `/documents/${docId}/generate-faqs/`,
+        type: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        success: function (res) {
+          if (res.success) {
+            pollFAQsStatus(docId, wrapper, btn);
+          } else {
+            wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Failed to start FAQ generation: ${res.error}</p>`);
+            btn.prop('disabled', false);
+          }
+        },
+        error: function (err) {
+          wrapper.html(`<p class="text-danger mt-3"><i class="bi bi-exclamation-triangle-fill"></i> Error starting FAQ generation.</p>`);
+          btn.prop('disabled', false);
+        }
+      });
+    });
+
+    function pollFAQsStatus(docId, wrapper, btn) {
+      const pollInterval = setInterval(() => {
+        $.ajax({
+          url: `/documents/${docId}/faqs-status/`,
+          type: 'GET',
+          success: function (res) {
+            if (res.success && res.content) {
+              clearInterval(pollInterval);
+              wrapper.html(`
+                <div class="summary-markdown">
+                  <div class="text-end mb-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); showToast('Copied to clipboard!', 'success');"><i class="bi bi-clipboard"></i> Copy</button>
+                  </div>
+                  <div>${res.content}</div>
+                </div>
+              `);
+              btn.prop('disabled', false);
+              btn.find('.btn-text').text("Regenerate FAQs");
+            } else if (!res.success) {
+              clearInterval(pollInterval);
+              wrapper.html(`<p class="text-danger py-4"><i class="bi bi-exclamation-triangle-fill"></i> ${res.error}</p>`);
+              btn.prop('disabled', false);
+              btn.find('.btn-text').text("Generate FAQs");
+            }
+          },
+          error: function () {
+            clearInterval(pollInterval);
+            wrapper.html(`<p class="text-danger py-4"><i class="bi bi-exclamation-triangle-fill"></i> Error checking status.</p>`);
+            btn.prop('disabled', false);
+            btn.find('.btn-text').text("Generate FAQs");
           }
         });
       }, 3000);

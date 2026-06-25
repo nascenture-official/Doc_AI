@@ -4,17 +4,37 @@ A web application built with Django that allows users to upload PDF files and ha
 
 ## Features
 
-- User authentication with email verification and Google OAuth
-- PDF upload with real-time background processing status
-- Arbitrary nested folder organization for document management
+### Document Chat & Intelligence
 - Retrieval-Augmented Generation (RAG) powered chat grounded in document content
 - Page-level source citations for every AI response
 - Real-time response streaming via Server-Sent Events (SSE)
 - Abort generation — stop an in-progress AI response mid-stream
 - Smart intent classification — small-talk messages bypass the vector store entirely
 - Export chat conversations in multiple formats (PDF, Markdown, TXT)
-- On-demand AI document summarization (concise and detailed)
 - Keyword search across all documents without LLM involvement
+
+### AI Document Actions
+- On-demand AI document summarization (concise and detailed)
+- Extract key points from documents
+- Generate custom FAQs based on document content
+- Rewrite document sections into multiple distinct styles
+- Translate documents into various languages
+
+### Interactive Reader & Annotations
+- Fully responsive, built-in PDF document reader
+- Color-coded text highlighting directly on PDFs
+- Attach custom notes to highlights and pages
+- Bookmark important pages for quick access
+- Integrated search functionality for notes and annotations
+
+### PDF Comparison
+- Side-by-side comparison tool for multiple PDF versions
+- Automatically detect and highlight added, removed, and modified sections
+
+### Management & Platform
+- User authentication with email verification and Google OAuth
+- PDF upload with real-time background processing status
+- Arbitrary nested folder organization for document management
 - Conversation history with infinite-scroll message loading
 - User dashboard with document stats, storage usage, and recent activity
 - Profile management with avatar upload and bio
