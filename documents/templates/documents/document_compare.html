@@ -1,0 +1,130 @@
+{% extends "base_app.html" %}
+{% load static %}
+{% load markdown_extras %}
+
+{% block title %}Compare Documents — DocChat{% endblock %}
+{% block page_title %}Document Comparison{% endblock %}
+
+{% block extra_css %}
+<!-- Diff2Html CSS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+<style>
+  .comparison-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    padding: 32px;
+    box-shadow: var(--shadow-card);
+    min-height: 400px;
+  }
+  .diff-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+  .ai-summary-box {
+    background: rgba(var(--bs-primary-rgb), 0.05);
+    border-left: 4px solid var(--primary);
+    padding: 20px;
+    border-radius: 4px;
+    margin-bottom: 24px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+  <div class="mb-4">
+    <a href="{% url 'documents:detail' comparison.document_base.id %}" class="btn btn-outline-custom border-0 p-0 text-secondary">
+      <i class="bi bi-arrow-left me-1"></i> Back to {{ comparison.document_base.title }}
+    </a>
+  </div>
+
+  <div class="comparison-card">
+    <div class="diff-header">
+      <div>
+        <h4 class="mb-1 fw-bold">Comparison Results</h4>
+        <div class="text-muted small">
+          Base: <strong>{{ comparison.document_base.title }}</strong> vs 
+          Compare: <strong>{{ comparison.document_compare.title }}</strong>
+        </div>
+      </div>
+      <div>
+        {% if comparison.status == 'ready' %}
+        <span class="badge bg-success">Ready</span>
+        {% elif comparison.status == 'failed' %}
+        <span class="badge bg-danger">Failed</span>
+        {% else %}
+        <span class="badge bg-warning text-dark">Processing</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div id="compare-content">
+      {% if comparison.status == 'processing' %}
+        <div class="text-center py-5" hx-get="{% url 'documents:comparison_status' comparison.id %}" hx-trigger="every 3s" hx-swap="outerHTML">
+          <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <h5 class="text-muted">Analyzing documents and generating diff...</h5>
+          <p class="text-muted small">This may take a few moments.</p>
+        </div>
+      {% elif comparison.status == 'failed' %}
+        <div class="alert alert-danger d-flex align-items-center gap-2" role="alert">
+          <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+          <div>
+            <strong>Error Details:</strong> {{ comparison.error_message }}
+          </div>
+        </div>
+      {% elif comparison.status == 'ready' %}
+        {% if comparison.ai_summary %}
+        <div class="ai-summary-box">
+          <h5 class="fw-bold mb-3"><i class="bi bi-magic me-2"></i> AI Summary of Changes</h5>
+          <div class="summary-markdown">
+            {{ comparison.ai_summary|markdown_to_html }}
+          </div>
+        </div>
+        {% endif %}
+        
+        <div id="diff-ui"></div>
+        <!-- Hidden input to hold diff text -->
+        <textarea id="raw-diff-data" style="display: none;">{{ comparison.diff_data }}</textarea>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if comparison.status == 'ready' %}
+<script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const rawDiff = document.getElementById('raw-diff-data').value;
+    if (rawDiff.trim()) {
+      const targetElement = document.getElementById('diff-ui');
+      const configuration = {
+        drawFileList: false,
+        fileListToggle: false,
+        fileListStartVisible: false,
+        fileContentToggle: false,
+        matching: 'lines',
+        outputFormat: 'side-by-side',
+        synchronisedScroll: true,
+        highlight: true,
+        renderNothingWhenEmpty: false,
+      };
+      const diff2htmlUi = new Diff2HtmlUI(targetElement, rawDiff, configuration);
+      diff2htmlUi.draw();
+      diff2htmlUi.highlightCode();
+    } else {
+      document.getElementById('diff-ui').innerHTML = '<div class="alert alert-info">No differences found between the documents.</div>';
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

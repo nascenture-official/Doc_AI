@@ -1,0 +1,7 @@
+<div id="compare-content" class="text-center py-5" hx-get="{% url 'documents:comparison_status' comparison.id %}" hx-trigger="every 3s" hx-swap="outerHTML">
+  <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+    <span class="visually-hidden">Loading...</span>
+  </div>
+  <h5 class="text-muted">Analyzing documents and generating diff...</h5>
+  <p class="text-muted small">This may take a few moments.</p>
+</div>
