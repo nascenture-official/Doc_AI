@@ -22,6 +22,15 @@ class Folder(models.Model):
     documents inside are orphaned (folder set to NULL) — never deleted.
     """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='folders')
+    # Optional shared-workspace owner. None = personal folder (today's behavior, unchanged).
+    # SET_NULL (not CASCADE) so deleting a workspace never deletes anyone's folders/documents —
+    # they simply revert to being personal folders for whichever user created them.
+    workspace = models.ForeignKey(
+        'teams.Workspace',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='folders'
+    )
     name = models.CharField(max_length=100)
     parent = models.ForeignKey(
         'self',
@@ -35,8 +44,17 @@ class Folder(models.Model):
 
     class Meta:
         ordering = ['name']
-        # Same name allowed inside different parent folders, but not within the same parent
+        # Personal folders: same name allowed inside different parent folders, but not within the same parent.
         unique_together = ('user', 'name', 'parent')
+        constraints = [
+            # Workspace folders: dedupe by workspace (not by creating user), since multiple
+            # members can create folders inside the same shared workspace.
+            models.UniqueConstraint(
+                fields=['workspace', 'name', 'parent'],
+                condition=models.Q(workspace__isnull=False),
+                name='unique_folder_name_per_workspace',
+            ),
+        ]
 
     def __str__(self):
         return self.name
@@ -83,7 +101,15 @@ class Document(models.Model):
         ('failed', 'Failed'),
     ]
 
+    # The uploader/creator — used for "Member can only edit/delete their own uploads" rule.
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='documents')
+    # Optional shared-workspace owner. None = personal document (today's behavior, unchanged).
+    workspace = models.ForeignKey(
+        'teams.Workspace',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='documents'
+    )
     folder = models.ForeignKey(
         Folder,
         null=True, blank=True,
@@ -95,6 +121,12 @@ class Document(models.Model):
     file_size = models.PositiveBigIntegerField()  # In bytes
     page_count = models.PositiveIntegerField(default=0)
     status = models.CharField(choices=STATUS_CHOICES, default='uploading', max_length=20)
+    EXTRACTION_METHOD_CHOICES = [
+        ('native', 'Native Text'),
+        ('ocr', 'OCR'),
+        ('mixed', 'Mixed (Native + OCR)'),
+    ]
+    extraction_method = models.CharField(choices=EXTRACTION_METHOD_CHOICES, default='native', max_length=10)
     error_message = models.TextField(blank=True, null=True)
     summary_short = models.TextField(blank=True, null=True)
     summary_long = models.TextField(blank=True, null=True)

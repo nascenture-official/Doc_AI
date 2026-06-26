@@ -36,3 +36,5 @@ embedding_cache/
 
 django.log
 
+PHASE_COMPLETION_REPORT.md
+

@@ -1,0 +1,48 @@
+{% extends "base_app.html" %}
+
+{% block title %}Shared with Me — DocChat{% endblock %}
+{% block page_title %}Shared with Me{% endblock %}
+
+{% block content %}
+<div class="section-card">
+  {% if documents %}
+  <div class="table-responsive-md">
+    <table class="table align-middle text-nowrap" style="color:var(--text-primary); --bs-table-bg: transparent; --bs-table-color: var(--text-primary); --bs-border-color: var(--border); margin-bottom: 0;">
+      <thead>
+        <tr style="color:var(--text-muted); font-size:12px; text-transform:uppercase;">
+          <th style="width: 33%;">Document</th>
+          <th style="width: 33%;">Owner</th>
+          <th style="width: 33%;">Permission</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in documents %}
+        <tr>
+          <td>
+            <div class="doc-title-cell" style="cursor: pointer;" onclick="this.querySelector('span').classList.toggle('text-wrap'); this.querySelector('span').classList.toggle('text-break');">
+              <i class="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>
+              <span title="{{ doc.title }}">{{ doc.title }}</span>
+            </div>
+          </td>
+          <td style="color:var(--text-secondary);">{{ doc.user.get_full_name|default:doc.user.username }}</td>
+          <td>
+            {% if doc.my_permission == 'edit' %}
+            <span class="badge-custom badge-green">Can Edit</span>
+            {% else %}
+            <span class="badge-custom badge-indigo">Can View</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{% url 'documents:detail' doc.pk %}" class="btn btn-sm btn-outline-custom">Open</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted); text-align:center; margin:0;">No documents have been shared with you yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

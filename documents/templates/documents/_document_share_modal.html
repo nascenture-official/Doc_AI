@@ -1,0 +1,37 @@
+{% comment %}
+── Document Share Modal ──────────────────────────────────────
+Populated dynamically via teams.js using teams:document_shares.
+The triggering button must set data-doc-id="{{ document.id }}".
+{% endcomment %}
+<div class="modal fade" id="documentShareModal" tabindex="-1" aria-labelledby="documentShareModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-toast); border:1px solid var(--border);">
+      <div class="modal-header border-bottom-0 pb-0">
+        <h5 class="modal-title fw-bold" id="documentShareModalLabel" style="color:var(--text-primary);">
+          <i class="bi bi-share-fill me-2" style="color:var(--primary-light);"></i>Share Document
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding-top: 16px;">
+        <div class="d-flex gap-2 mb-3">
+          <input type="email" class="form-control" id="modal-share-email" placeholder="person@example.com"
+                 autocomplete="off" style="background:var(--bg-card); border-color:var(--border); color:var(--text-primary);">
+          <select class="form-select" id="modal-share-permission" style="width:130px; background:var(--bg-card); border-color:var(--border); color:var(--text-primary);">
+            <option value="view" selected>Can View</option>
+            <option value="edit">Can Edit</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-primary" id="confirmAddShareBtn" style="flex-shrink:0;">
+            <span id="addShareBtnText">Add</span>
+            <span id="addShareBtnLoader" style="display:none; align-items:center; gap:8px;">
+              <span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px;"></span>
+            </span>
+          </button>
+        </div>
+        <div id="documentShareList"></div>
+      </div>
+      <div class="modal-footer border-top-0 pt-0">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

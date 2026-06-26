@@ -2,7 +2,7 @@ import time
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
-from django.http import JsonResponse, FileResponse
+from django.http import JsonResponse, FileResponse, Http404
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -15,6 +15,19 @@ from .models import Document, Folder, DocumentComparison, Bookmark, Highlight, N
 from django.db.models import Q
 import json
 from .services.vector_store import delete_vector_index
+from teams.utils import get_active_workspace
+from teams.permissions import (
+    visible_documents_for,
+    visible_folders_for,
+    get_viewable_document_or_404,
+    get_editable_document_or_404,
+    get_deletable_document_or_404,
+    get_viewable_folder_or_404,
+    get_editable_folder_or_404,
+    is_workspace_admin,
+    user_can_delete_document,
+    user_can_edit_folder,
+)
 
 DOCUMENTS_PAGE_SIZE = 12
 
@@ -31,14 +44,15 @@ class DocumentListView(LoginRequiredMixin, View):
     def get(self, request):
         folder_id = request.GET.get('folder')
         current_folder = None
+        active_workspace = get_active_workspace(request)
 
-        documents_qs = Document.objects.filter(user=request.user).defer(
+        documents_qs = visible_documents_for(request.user, active_workspace).defer(
             'summary_short', 'summary_long', 'error_message'
         )
 
         if folder_id:
             try:
-                current_folder = Folder.objects.get(pk=folder_id, user=request.user)
+                current_folder = visible_folders_for(request.user, active_workspace).get(pk=folder_id)
                 documents_qs = documents_qs.filter(folder=current_folder)
             except Folder.DoesNotExist:
                 current_folder = None
@@ -50,7 +64,13 @@ class DocumentListView(LoginRequiredMixin, View):
         page_number = request.GET.get('page', 1)
         page_obj = paginator.get_page(page_number)
 
-        root_folders = Folder.objects.filter(user=request.user, parent__isnull=True)
+        root_folders = visible_folders_for(request.user, active_workspace).filter(parent__isnull=True)
+
+        # Workspace docs uploaded by someone else are visible but not deletable by a plain
+        # Member — annotate so the table can hide the delete checkbox/button per row instead
+        # of letting them select it and hit a silent 404 on confirm.
+        for doc in page_obj:
+            doc.can_delete = user_can_delete_document(request.user, doc)
 
         return render(request, self.template_name, {
             "documents": page_obj,
@@ -59,6 +79,7 @@ class DocumentListView(LoginRequiredMixin, View):
             "page_title": "My Documents",
             "root_folders": root_folders,
             "current_folder": current_folder,
+            "active_workspace": active_workspace,
         })
 
 
@@ -88,6 +109,7 @@ class DocumentUploadAjaxView(LoginRequiredMixin, View):
         # 3. Save initial document in "uploading" state
         doc = Document(
             user=request.user,
+            workspace=get_active_workspace(request),
             title=file.name,
             file=file,
             file_size=file.size,
@@ -135,7 +157,7 @@ class DocumentStatusBadgeView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def get(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         return render(request, "documents/_status_badge.html", {"doc": doc, "is_htmx": True})
 
 class DocumentDetailView(LoginRequiredMixin, View):
@@ -147,13 +169,18 @@ class DocumentDetailView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         from documents.models import TRANSLATION_LANGUAGES
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
-        all_documents = Document.objects.filter(user=request.user).exclude(id=doc.id).order_by('-uploaded_at')
+        from teams.permissions import user_can_edit_document, user_can_delete_document, user_can_manage_shares
+
+        doc = get_viewable_document_or_404(request.user, pk)
+        all_documents = visible_documents_for(request.user, doc.workspace).exclude(id=doc.id).order_by('-uploaded_at')
         return render(request, self.template_name, {
             "document": doc,
             "all_documents": all_documents,
             "page_title": f"Document: {doc.title}",
             "translation_languages": TRANSLATION_LANGUAGES,
+            "can_edit_document": user_can_edit_document(request.user, doc),
+            "can_delete_document": user_can_delete_document(request.user, doc),
+            "can_manage_shares": user_can_manage_shares(request.user, doc),
         })
 
 class DocumentDeleteView(LoginRequiredMixin, View):
@@ -164,7 +191,7 @@ class DocumentDeleteView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def post(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_deletable_document_or_404(request.user, pk)
         try:
             # Delete vectors from Chroma DB
             delete_vector_index(doc.id)
@@ -183,7 +210,7 @@ class DocumentDownloadView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def get(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         try:
             response = FileResponse(doc.file.open('rb'), content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="{doc.title}"'
@@ -199,7 +226,7 @@ class GenerateSummaryAjaxView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def post(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_editable_document_or_404(request.user, pk)
         summary_type = request.POST.get('type')
         
         if summary_type not in ['short', 'detailed']:
@@ -225,7 +252,7 @@ class SummaryStatusAjaxView(LoginRequiredMixin, View):
     def get(self, request, pk):
         from documents.templatetags.markdown_extras import markdown_to_html
         
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         summary_type = request.GET.get('type')
         
         if summary_type == 'short':
@@ -251,7 +278,7 @@ class TranslateDocumentAjaxView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def post(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_editable_document_or_404(request.user, pk)
         language = request.POST.get('language')
         
         from documents.models import TRANSLATION_LANGUAGES
@@ -279,7 +306,7 @@ class TranslationStatusAjaxView(LoginRequiredMixin, View):
         from documents.templatetags.markdown_extras import markdown_to_html
         from documents.models import DocumentTranslation
         
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         language = request.GET.get('language')
         
         try:
@@ -304,27 +331,38 @@ class FolderDetailView(LoginRequiredMixin, View):
     template_name = "documents/folder_detail.html"
 
     def get(self, request, pk):
-        folder = get_object_or_404(Folder, pk=pk, user=request.user)
+        folder = get_viewable_folder_or_404(request.user, pk)
 
-        documents_qs = Document.objects.filter(
-            user=request.user, folder=folder
+        documents_qs = visible_documents_for(request.user, folder.workspace).filter(
+            folder=folder
         ).defer('summary_short', 'summary_long', 'error_message')
 
         paginator = Paginator(documents_qs, DOCUMENTS_PAGE_SIZE)
         page_number = request.GET.get('page', 1)
         page_obj = paginator.get_page(page_number)
 
-        root_folders = Folder.objects.filter(user=request.user, parent__isnull=True)
+        # "Remove from folder" uses the same delete permission as the document itself.
+        for doc in page_obj:
+            doc.can_delete = user_can_delete_document(request.user, doc)
+
+        root_folders = visible_folders_for(request.user, folder.workspace).filter(parent__isnull=True)
+
+        # Rename/Delete/Add-document all require edit rights on the folder itself — annotate so
+        # the template can hide those controls instead of letting a view-only Member hit a 404.
+        subfolders = list(visible_folders_for(request.user, folder.workspace).filter(parent=folder))
+        for sub in subfolders:
+            sub.can_edit = user_can_edit_folder(request.user, sub)
 
         return render(request, self.template_name, {
             "folder": folder,
             "documents": page_obj,
             "page_obj": page_obj,
             "total_count": paginator.count,
-            "subfolders": folder.children.all(),
+            "subfolders": subfolders,
             "breadcrumb": folder.get_breadcrumb(),
             "root_folders": root_folders,
             "current_folder": folder,
+            "can_edit_folder": user_can_edit_folder(request.user, folder),
             "page_title": folder.name,
         })
 
@@ -344,17 +382,23 @@ class FolderCreateAjaxView(LoginRequiredMixin, View):
             return JsonResponse({"success": False, "error": "Folder name is required."}, status=400)
 
         parent = None
+        workspace = get_active_workspace(request)
         if parent_id:
             try:
-                parent = Folder.objects.get(pk=parent_id, user=request.user)
-            except Folder.DoesNotExist:
+                parent = get_viewable_folder_or_404(request.user, parent_id)
+            except Http404:
                 return JsonResponse({"success": False, "error": "Parent folder not found."}, status=404)
+            workspace = parent.workspace
 
-        # Check unique_together constraint
-        if Folder.objects.filter(user=request.user, name=name, parent=parent).exists():
+        # Check uniqueness — scoped by workspace for shared folders, by user for personal ones
+        if workspace:
+            duplicate_exists = Folder.objects.filter(workspace=workspace, name=name, parent=parent).exists()
+        else:
+            duplicate_exists = Folder.objects.filter(user=request.user, workspace__isnull=True, name=name, parent=parent).exists()
+        if duplicate_exists:
             return JsonResponse({"success": False, "error": "A folder with this name already exists here."}, status=400)
 
-        folder = Folder.objects.create(user=request.user, name=name, parent=parent)
+        folder = Folder.objects.create(user=request.user, workspace=workspace, name=name, parent=parent)
         return JsonResponse({
             "success": True,
             "id": folder.pk,
@@ -371,14 +415,17 @@ class FolderRenameAjaxView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def post(self, request, pk):
-        folder = get_object_or_404(Folder, pk=pk, user=request.user)
+        folder = get_editable_folder_or_404(request.user, pk)
         name = request.POST.get('name', '').strip()
 
         if not name:
             return JsonResponse({"success": False, "error": "Folder name cannot be empty."}, status=400)
 
-        # Check uniqueness in the same parent
-        qs = Folder.objects.filter(user=request.user, name=name, parent=folder.parent).exclude(pk=pk)
+        # Check uniqueness in the same parent — scoped by workspace for shared folders, by user for personal ones
+        if folder.workspace:
+            qs = Folder.objects.filter(workspace=folder.workspace, name=name, parent=folder.parent).exclude(pk=pk)
+        else:
+            qs = Folder.objects.filter(user=request.user, workspace__isnull=True, name=name, parent=folder.parent).exclude(pk=pk)
         if qs.exists():
             return JsonResponse({"success": False, "error": "A folder with this name already exists here."}, status=400)
 
@@ -395,7 +442,7 @@ class FolderDeleteAjaxView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def post(self, request, pk):
-        folder = get_object_or_404(Folder, pk=pk, user=request.user)
+        folder = get_editable_folder_or_404(request.user, pk)
         parent_id = folder.parent_id  # Return for UI re-render
         folder.delete()
         return JsonResponse({"success": True, "parent_id": parent_id})
@@ -410,14 +457,14 @@ class FolderMoveAjaxView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def post(self, request, pk):
-        folder = get_object_or_404(Folder, pk=pk, user=request.user)
+        folder = get_editable_folder_or_404(request.user, pk)
         new_parent_id = request.POST.get('new_parent_id', '').strip()
 
         new_parent = None
         if new_parent_id:
             try:
-                new_parent = Folder.objects.get(pk=new_parent_id, user=request.user)
-            except Folder.DoesNotExist:
+                new_parent = get_viewable_folder_or_404(request.user, new_parent_id)
+            except Http404:
                 return JsonResponse({"success": False, "error": "Target folder not found."}, status=404)
 
             # Guard: cannot move into own descendant
@@ -427,8 +474,19 @@ class FolderMoveAjaxView(LoginRequiredMixin, View):
                     "error": "Cannot move a folder into itself or one of its subfolders."
                 }, status=400)
 
-        # Check name uniqueness at new location
-        if Folder.objects.filter(user=request.user, name=folder.name, parent=new_parent).exclude(pk=pk).exists():
+            # Guard: cannot move a folder across workspace boundaries
+            if new_parent.workspace_id != folder.workspace_id:
+                return JsonResponse({
+                    "success": False,
+                    "error": "Cannot move a folder into a different workspace."
+                }, status=400)
+
+        # Check name uniqueness at new location — scoped by workspace for shared folders, by user for personal ones
+        if folder.workspace:
+            duplicate_exists = Folder.objects.filter(workspace=folder.workspace, name=folder.name, parent=new_parent).exclude(pk=pk).exists()
+        else:
+            duplicate_exists = Folder.objects.filter(user=request.user, workspace__isnull=True, name=folder.name, parent=new_parent).exclude(pk=pk).exists()
+        if duplicate_exists:
             return JsonResponse({
                 "success": False,
                 "error": f'A folder named "{folder.name}" already exists in the target location.'
@@ -447,14 +505,16 @@ class MoveDocumentAjaxView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def post(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_deletable_document_or_404(request.user, pk)
         folder_id = request.POST.get('folder_id', '').strip()
 
         if folder_id:
             try:
-                folder = Folder.objects.get(pk=folder_id, user=request.user)
-            except Folder.DoesNotExist:
+                folder = get_viewable_folder_or_404(request.user, folder_id)
+            except Http404:
                 return JsonResponse({"success": False, "error": "Folder not found."}, status=404)
+            if folder.workspace_id != doc.workspace_id:
+                return JsonResponse({"success": False, "error": "Cannot move a document into a different workspace."}, status=400)
             doc.folder = folder
         else:
             doc.folder = None
@@ -475,20 +535,23 @@ class ManageFoldersView(LoginRequiredMixin, View):
 
     def get(self, request):
         query = request.GET.get('q', '').strip()
-        
+        active_workspace = get_active_workspace(request)
+
         # Base queryset
-        folders_qs = Folder.objects.filter(user=request.user)
-        
+        folders_qs = visible_folders_for(request.user, active_workspace)
+
         if query:
             folders_qs = folders_qs.filter(name__icontains=query)
         else:
             # Default: show root folders
             folders_qs = folders_qs.filter(parent__isnull=True)
-            
-        folders_qs = folders_qs.prefetch_related('documents')
-        
-        all_documents = Document.objects.filter(user=request.user).order_by('-uploaded_at')
-        all_folders_list = Folder.objects.filter(user=request.user).order_by('name')
+
+        folders_qs = list(folders_qs.prefetch_related('documents'))
+        for folder in folders_qs:
+            folder.can_edit = user_can_edit_folder(request.user, folder)
+
+        all_documents = visible_documents_for(request.user, active_workspace).order_by('-uploaded_at')
+        all_folders_list = visible_folders_for(request.user, active_workspace).order_by('name')
 
         return render(request, self.template_name, {
             "folders": folders_qs,
@@ -496,6 +559,7 @@ class ManageFoldersView(LoginRequiredMixin, View):
             "all_documents": all_documents,
             "all_folders_list": all_folders_list,
             "page_title": "Manage Folders",
+            "active_workspace": active_workspace,
         })
 
 class FolderCreateFormView(LoginRequiredMixin, View):
@@ -506,7 +570,7 @@ class FolderCreateFormView(LoginRequiredMixin, View):
     template_name = "documents/folder_form.html"
 
     def get(self, request):
-        parents = Folder.objects.filter(user=request.user)
+        parents = visible_folders_for(request.user, get_active_workspace(request))
         folder = Folder(parent_id=request.GET.get('parent_id'))
         return render(request, self.template_name, {
             "parents": parents,
@@ -524,19 +588,26 @@ class FolderCreateFormView(LoginRequiredMixin, View):
             return redirect('documents:folder_add_page')
 
         parent = None
+        workspace = get_active_workspace(request)
         if parent_id:
             try:
-                parent = Folder.objects.get(pk=parent_id, user=request.user)
-            except Folder.DoesNotExist:
+                parent = get_viewable_folder_or_404(request.user, parent_id)
+            except Http404:
                 messages.error(request, "Parent folder not found.")
                 return redirect('documents:folder_add_page')
+            workspace = parent.workspace
 
-        if Folder.objects.filter(user=request.user, name=name, parent=parent).exists():
+        if workspace:
+            duplicate_exists = Folder.objects.filter(workspace=workspace, name=name, parent=parent).exists()
+        else:
+            duplicate_exists = Folder.objects.filter(user=request.user, workspace__isnull=True, name=name, parent=parent).exists()
+        if duplicate_exists:
             messages.error(request, "A folder with this name already exists here.")
             return redirect('documents:folder_add_page')
 
         Folder.objects.create(
             user=request.user,
+            workspace=workspace,
             name=name,
             parent=parent,
             description=description,
@@ -552,8 +623,8 @@ class FolderEditFormView(LoginRequiredMixin, View):
     template_name = "documents/folder_form.html"
 
     def get(self, request, pk):
-        folder = get_object_or_404(Folder, pk=pk, user=request.user)
-        parents = Folder.objects.filter(user=request.user).exclude(pk=pk)
+        folder = get_editable_folder_or_404(request.user, pk)
+        parents = visible_folders_for(request.user, folder.workspace).exclude(pk=pk)
         return render(request, self.template_name, {
             "folder": folder,
             "parents": parents,
@@ -561,7 +632,7 @@ class FolderEditFormView(LoginRequiredMixin, View):
         })
 
     def post(self, request, pk):
-        folder = get_object_or_404(Folder, pk=pk, user=request.user)
+        folder = get_editable_folder_or_404(request.user, pk)
         name = request.POST.get('name', '').strip()
         parent_id = request.POST.get('parent_id')
         description = request.POST.get('description', '').strip()
@@ -573,18 +644,27 @@ class FolderEditFormView(LoginRequiredMixin, View):
         parent = None
         if parent_id:
             try:
-                parent = Folder.objects.get(pk=parent_id, user=request.user)
-            except Folder.DoesNotExist:
+                parent = get_viewable_folder_or_404(request.user, parent_id)
+            except Http404:
                 messages.error(request, "Parent folder not found.")
                 return redirect('documents:folder_edit_page', pk=pk)
-            
+
             # Guard against moving into descendants
             if folder.is_ancestor_of(parent):
                 messages.error(request, "Cannot move a folder into its own subfolder.")
                 return redirect('documents:folder_edit_page', pk=pk)
 
-        # Check unique constraint excluding self
-        if Folder.objects.filter(user=request.user, name=name, parent=parent).exclude(pk=pk).exists():
+            # Guard: cannot move a folder across workspace boundaries
+            if parent.workspace_id != folder.workspace_id:
+                messages.error(request, "Cannot move a folder into a different workspace.")
+                return redirect('documents:folder_edit_page', pk=pk)
+
+        # Check unique constraint excluding self — scoped by workspace for shared folders, by user for personal ones
+        if folder.workspace:
+            duplicate_exists = Folder.objects.filter(workspace=folder.workspace, name=name, parent=parent).exclude(pk=pk).exists()
+        else:
+            duplicate_exists = Folder.objects.filter(user=request.user, workspace__isnull=True, name=name, parent=parent).exclude(pk=pk).exists()
+        if duplicate_exists:
             messages.error(request, "A folder with this name already exists in the target location.")
             return redirect('documents:folder_edit_page', pk=pk)
 
@@ -592,7 +672,7 @@ class FolderEditFormView(LoginRequiredMixin, View):
         folder.parent = parent
         folder.description = description
         folder.save()
-        
+
         messages.success(request, f"Folder '{name}' updated successfully.")
         return redirect('documents:folder_manage')
 
@@ -603,13 +683,20 @@ class AddDocumentsToFolderAjaxView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def post(self, request, pk):
-        folder = get_object_or_404(Folder, pk=pk, user=request.user)
+        folder = get_editable_folder_or_404(request.user, pk)
         document_ids = request.POST.getlist('document_ids[]')
-        
+
         if not document_ids:
             return JsonResponse({"success": False, "error": "No documents selected."}, status=400)
-            
-        docs = Document.objects.filter(user=request.user, pk__in=document_ids)
+
+        # Only documents the user can move (their own uploads, or any doc if they admin the workspace)
+        # may be reassigned, and only within the folder's own workspace.
+        if folder.workspace and is_workspace_admin(request.user, folder.workspace):
+            docs = Document.objects.filter(workspace=folder.workspace, pk__in=document_ids)
+        elif folder.workspace:
+            docs = Document.objects.filter(workspace=folder.workspace, user=request.user, pk__in=document_ids)
+        else:
+            docs = Document.objects.filter(user=request.user, workspace__isnull=True, pk__in=document_ids)
         updated_count = docs.update(folder=folder)
         
         return JsonResponse({
@@ -625,7 +712,7 @@ class UnassignedDocumentsAjaxView(LoginRequiredMixin, View):
         page_number = request.GET.get('page', 1)
         exclude_folder = request.GET.get('exclude_folder')
         
-        docs = Document.objects.filter(user=request.user)
+        docs = visible_documents_for(request.user, get_active_workspace(request))
         if exclude_folder:
             docs = docs.exclude(folder_id=exclude_folder)
             
@@ -652,7 +739,7 @@ class RewriteContentAjaxView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def post(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_editable_document_or_404(request.user, pk)
         style = request.POST.get('style')
         
         valid_styles = ['Simplified', 'Formal', 'Academic', 'Casual']
@@ -685,7 +772,7 @@ class RewriteStatusAjaxView(LoginRequiredMixin, View):
     def get(self, request, pk):
         from documents.templatetags.markdown_extras import markdown_to_html
         
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         content = doc.rewrite_content
             
         if content:
@@ -703,8 +790,8 @@ class ExtractKeyPointsAjaxView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def post(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
-            
+        doc = get_editable_document_or_404(request.user, pk)
+
         try:
             # Clear previous result
             doc.key_points = None
@@ -729,7 +816,7 @@ class KeyPointsStatusAjaxView(LoginRequiredMixin, View):
     def get(self, request, pk):
         from documents.templatetags.markdown_extras import markdown_to_html
         
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         content = doc.key_points
             
         if content:
@@ -747,8 +834,8 @@ class GenerateFAQsAjaxView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def post(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
-            
+        doc = get_editable_document_or_404(request.user, pk)
+
         try:
             # Clear previous result
             doc.faqs = None
@@ -773,7 +860,7 @@ class FAQsStatusAjaxView(LoginRequiredMixin, View):
     def get(self, request, pk):
         from documents.templatetags.markdown_extras import markdown_to_html
         
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         content = doc.faqs
             
         if content:
@@ -785,14 +872,14 @@ class FAQsStatusAjaxView(LoginRequiredMixin, View):
 
 class DocumentCompareCreateView(LoginRequiredMixin, View):
     def post(self, request, pk):
-        document_base = get_object_or_404(Document, pk=pk, user=request.user)
+        document_base = get_editable_document_or_404(request.user, pk)
         compare_doc_id = request.POST.get('compare_doc_id')
-        
+
         if not compare_doc_id:
             messages.error(request, "Please select a document to compare with.")
             return redirect('documents:detail', pk=pk)
-            
-        document_compare = get_object_or_404(Document, pk=compare_doc_id, user=request.user)
+
+        document_compare = get_viewable_document_or_404(request.user, compare_doc_id)
         
         if document_base == document_compare:
             messages.error(request, "Cannot compare a document with itself.")
@@ -843,7 +930,7 @@ class DocumentReaderView(LoginRequiredMixin, View):
     template_name = "documents/reader.html"
 
     def get(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         return render(request, self.template_name, {
             "document": doc,
             "page_title": f"Reading: {doc.title}"
@@ -855,7 +942,7 @@ class AnnotationsAjaxView(LoginRequiredMixin, View):
     Returns all bookmarks, highlights, and notes for a document.
     """
     def get(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         
         bookmarks = list(doc.bookmarks.filter(user=request.user).values(
             'id', 'page_number', 'title', 'created_at'
@@ -882,7 +969,7 @@ class BookmarksAjaxView(LoginRequiredMixin, View):
     Add or remove a bookmark.
     """
     def post(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         try:
             data = json.loads(request.body)
             action = data.get('action')
@@ -916,7 +1003,7 @@ class HighlightsAjaxView(LoginRequiredMixin, View):
     Add or delete highlights.
     """
     def post(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         try:
             data = json.loads(request.body)
             page_number = int(data.get('page_number'))
@@ -957,7 +1044,7 @@ class NotesAjaxView(LoginRequiredMixin, View):
     Add, edit, or delete notes.
     """
     def post(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         try:
             data = json.loads(request.body)
             note_id = data.get('id')
@@ -1002,7 +1089,7 @@ class NotesSearchAjaxView(LoginRequiredMixin, View):
     Search notes and highlights.
     """
     def get(self, request, pk):
-        doc = get_object_or_404(Document, pk=pk, user=request.user)
+        doc = get_viewable_document_or_404(request.user, pk)
         q = request.GET.get('q', '').strip()
         
         if not q:

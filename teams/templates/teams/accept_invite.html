@@ -1,0 +1,43 @@
+{% extends "base_app.html" %}
+
+{% block title %}Workspace Invitation — DocChat{% endblock %}
+{% block page_title %}Workspace Invitation{% endblock %}
+
+{% block content %}
+<div class="section-card" style="max-width:520px; margin:0 auto;">
+  {% if invalid %}
+    <div class="section-card-header">
+      <span class="section-title"><i class="bi bi-exclamation-triangle-fill me-2" style="color:var(--danger);"></i>Invitation No Longer Valid</span>
+    </div>
+    <p style="color:var(--text-secondary);">This invitation has expired, been revoked, or already been used.</p>
+    <a href="{% url 'teams:list' %}" class="btn btn-outline-custom btn-sm">Go to Workspaces</a>
+  {% elif email_mismatch %}
+    <div class="section-card-header">
+      <span class="section-title"><i class="bi bi-exclamation-triangle-fill me-2" style="color:var(--warning);"></i>Wrong Account</span>
+    </div>
+    <p style="color:var(--text-secondary);">
+      This invitation was sent to <strong>{{ invitation.email }}</strong>, but you're signed in as
+      <strong>{{ request.user.email }}</strong>. Sign out and sign back in with the invited email address to accept it.
+    </p>
+    <a href="{% url 'account_logout' %}" class="btn btn-outline-custom btn-sm">Sign Out</a>
+  {% else %}
+    <div class="section-card-header">
+      <span class="section-title"><i class="bi bi-people-fill me-2" style="color:var(--primary-light);"></i>Join "{{ invitation.workspace.name }}"</span>
+    </div>
+    <p style="color:var(--text-secondary);">
+      <strong>{{ invitation.invited_by.get_full_name|default:invitation.invited_by.username }}</strong>
+      invited you to join as a <strong>{{ invitation.get_role_display }}</strong>.
+    </p>
+    <div class="d-flex gap-2">
+      <form method="post" action="{% url 'teams:accept_invite' invitation.token %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary-custom btn-sm">Accept Invitation</button>
+      </form>
+      <form method="post" action="{% url 'teams:decline_invite' invitation.token %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-custom-secondary btn-sm">Decline</button>
+      </form>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

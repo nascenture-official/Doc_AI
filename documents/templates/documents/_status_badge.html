@@ -2,6 +2,11 @@
   <span class="badge-status ready" id="status-badge-{{ doc.id }}">
     <i class="bi bi-check-circle-fill"></i> Ready • {{ doc.page_count }} pages
   </span>
+  {% if doc.extraction_method != 'native' %}
+  <span class="badge-status ocr" title="Text extracted using OCR{% if doc.extraction_method == 'mixed' %} (some pages){% endif %}">
+    <i class="bi bi-camera-fill"></i> {% if doc.extraction_method == 'mixed' %}Mixed{% else %}Scanned (OCR){% endif %}
+  </span>
+  {% endif %}
   {% if is_htmx %}
   <div class="doc-title-cell" id="doc-title-cell-{{ doc.id }}" hx-swap-oob="true">
     <i class="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>

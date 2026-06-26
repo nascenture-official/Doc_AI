@@ -1,0 +1,23 @@
+{% if pending_workspace_invitations %}
+<div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4" role="alert">
+  <div>
+    {% for invitation in pending_workspace_invitations %}
+    <div class="{% if not forloop.last %}mb-2{% endif %}">
+      <i class="bi bi-envelope-paper-fill me-2"></i>
+      <strong>{{ invitation.invited_by.get_full_name|default:invitation.invited_by.username }}</strong>
+      invited you to join <strong>{{ invitation.workspace.name }}</strong> as {{ invitation.get_role_display }}.
+      <form method="post" action="{% url 'teams:accept_invite' invitation.token %}" class="d-inline ms-2">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" class="btn btn-primary-custom btn-sm">Accept</button>
+      </form>
+      <form method="post" action="{% url 'teams:decline_invite' invitation.token %}" class="d-inline ms-1">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" class="btn btn-outline-custom-secondary btn-sm">Decline</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}

@@ -14,5 +14,6 @@ urlpatterns = [
     path("documents/", include("documents.urls")),
     path("chat/", include("chat.urls")),
     path("search/", include("search.urls")),
+    path("teams/", include("teams.urls")),
     path("", landing_page, name="root"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

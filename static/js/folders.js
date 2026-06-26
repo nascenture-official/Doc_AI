@@ -370,18 +370,37 @@
       });
     }
 
-    // Bulk delete documents
+    // Bulk delete documents — confirmed via #bulkDeleteDocsModal instead of a native confirm()
     const deleteBtn = document.getElementById('toolbar-delete-btn');
-    if (deleteBtn) {
-      deleteBtn.addEventListener('click', async function () {
+    const bulkDeleteModalEl = document.getElementById('bulkDeleteDocsModal');
+    if (deleteBtn && bulkDeleteModalEl && window.bootstrap) {
+      const bulkDeleteModal = new bootstrap.Modal(bulkDeleteModalEl);
+      const confirmBtn = document.getElementById('confirmBulkDeleteDocsBtn');
+      const cancelBtn = document.getElementById('bulkDeleteDocsCancelBtn');
+      const closeBtn = document.getElementById('bulkDeleteDocsModalClose');
+      const countEl2 = document.getElementById('bulkDeleteDocsCount');
+      const btnText = document.getElementById('bulkDeleteDocsBtnText');
+      const btnLoader = document.getElementById('bulkDeleteDocsBtnLoader');
+
+      deleteBtn.addEventListener('click', function () {
         const ids = getChecked().map(cb => cb.value);
         if (!ids.length) return;
-        if (!confirm(`Are you sure you want to delete ${ids.length} selected document(s)?`)) return;
-        
-        // Disable button during deletion
-        const originalHtml = deleteBtn.innerHTML;
-        deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Deleting...';
-        deleteBtn.disabled = true;
+        countEl2.textContent = ids.length;
+        bulkDeleteModal.show();
+      });
+
+      confirmBtn.addEventListener('click', async function () {
+        const ids = getChecked().map(cb => cb.value);
+        if (!ids.length) {
+          bulkDeleteModal.hide();
+          return;
+        }
+
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        closeBtn.disabled = true;
+        btnText.style.display = 'none';
+        btnLoader.style.display = 'inline-flex';
 
         let successCount = 0;
         let failCount = 0;
@@ -400,12 +419,16 @@
           }
         }
 
+        bulkDeleteModal.hide();
+        confirmBtn.disabled = false;
+        cancelBtn.disabled = false;
+        closeBtn.disabled = false;
+        btnText.style.display = '';
+        btnLoader.style.display = 'none';
+
         if (successCount > 0) {
           showToast(`${successCount} document(s) deleted.`, 'success');
           setTimeout(() => window.location.reload(), 800);
-        } else {
-          deleteBtn.innerHTML = originalHtml;
-          deleteBtn.disabled = false;
         }
         if (failCount > 0) {
           showToast(`Failed to delete ${failCount} document(s).`, 'danger');

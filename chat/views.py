@@ -10,6 +10,8 @@ from django.core.cache import cache
 from documents.models import Document
 from .models import Conversation, Message
 from .services.ai_service import auto_generate_title, stream_chat_response
+from teams.utils import get_active_workspace
+from teams.permissions import visible_documents_for
 
 
 # How many messages to load on initial chat page render
@@ -44,8 +46,8 @@ class NewConversationView(LoginRequiredMixin, View):
     def get(self, request):
         # Paginate ready docs — 10 per page
         from django.core.paginator import Paginator
-        ready_docs_qs = Document.objects.filter(
-            user=request.user, status='ready'
+        ready_docs_qs = visible_documents_for(request.user, get_active_workspace(request)).filter(
+            status='ready'
         ).only('id', 'title', 'page_count', 'file_size', 'uploaded_at')
 
         paginator = Paginator(ready_docs_qs, 10)
@@ -84,7 +86,9 @@ class NewConversationView(LoginRequiredMixin, View):
             return redirect(reverse('chat:new'))
 
         convo = Conversation.objects.create(user=request.user, title="New Conversation")
-        selected_docs = Document.objects.filter(id__in=doc_ids, user=request.user)
+        # The actual access-control choke point: only documents the user may currently view
+        # (personal, or visible via their active workspace) can enter a RAG conversation.
+        selected_docs = visible_documents_for(request.user, get_active_workspace(request)).filter(id__in=doc_ids)
         convo.documents.set(selected_docs)
         convo.save()
 

@@ -404,6 +404,19 @@
     color: var(--danger);
   }
 
+  .badge-status.ocr {
+    background: rgba(99, 102, 241, 0.1);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+  }
+
+  .status-badge-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
   /* ── Documents Table ── */
   .documents-card {
     background: var(--bg-surface);
@@ -718,6 +731,14 @@
   <input type="hidden" id="folder-move-url-tpl" value="/documents/folders/__ID__/move/">
   <input type="hidden" id="doc-move-url-tpl" value="/documents/__ID__/move/">
 
+  {% if active_workspace %}
+  <div class="d-flex align-items-center gap-2 mb-3" style="font-size:13px; color:var(--text-secondary);">
+    <i class="bi bi-people-fill" style="color:var(--primary-light);"></i>
+    Viewing documents in workspace <strong style="color:var(--text-primary);">{{ active_workspace.name }}</strong>
+    <a href="{% url 'teams:detail' active_workspace.pk %}" class="ms-1">Manage</a>
+  </div>
+  {% endif %}
+
   <div class="folder-layout" style="display:block;">
 
     {# ── Main content ── #}
@@ -814,18 +835,25 @@
               {% for doc in documents %}
               <tr id="doc-row-{{ doc.id }}">
                 <td>
+                  {% if doc.can_delete %}
                   <input type="checkbox" class="doc-checkbox" value="{{ doc.id }}" id="check-doc-{{ doc.id }}">
+                  {% endif %}
                 </td>
                 <td>
-                  <div class="doc-title-cell" id="doc-title-cell-{{ doc.id }}">
+                  <div class="doc-title-cell" id="doc-title-cell-{{ doc.id }}" style="cursor: pointer;" onclick="const s = this.querySelector('span'); if(s) { s.classList.toggle('text-wrap'); s.classList.toggle('text-break'); }">
                     <i class="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>
                     {% if doc.status == 'ready' %}
                     <a href="{% url 'documents:detail' doc.id %}"
-                      class="text-decoration-none text-light-hover fw-medium" title="View Details & Summaries">
+                      class="text-decoration-none text-light-hover fw-medium" title="View Details & Summaries" onclick="event.stopPropagation();">
                       <span>{{ doc.title }}</span>
                     </a>
                     {% else %}
                     <span title="{{ doc.title }}" class="text-muted">{{ doc.title }}</span>
+                    {% endif %}
+                    {% if doc.workspace %}
+                    <span class="badge-custom badge-indigo" title="Shared in {{ doc.workspace.name }}" style="margin-left:6px;">
+                      <i class="bi bi-people-fill"></i>
+                    </span>
                     {% endif %}
                   </div>
                 </td>
@@ -843,18 +871,22 @@
                 <td class="d-none d-md-table-cell">{{ doc.uploaded_at|date:"M d, Y, I:i A" }}</td>
                 <td class="d-none d-sm-table-cell">{{ doc.file_size|filesizeformat }}</td>
                 <td id="status-cell-{{ doc.id }}">
-                  {% include "documents/_status_badge.html" with doc=doc %}
+                  <div class="status-badge-wrap">
+                    {% include "documents/_status_badge.html" with doc=doc %}
+                  </div>
                 </td>
                 <td>
                   <div class="d-flex align-items-center gap-2">
                     <a href="{% url 'documents:download' doc.id %}" class="action-btn" title="Download PDF">
                       <i class="bi bi-download"></i>
                     </a>
+                    {% if doc.can_delete %}
                     <button type="button" class="action-btn btn-delete btn-delete-doc" data-id="{{ doc.id }}"
                       data-url="{% url 'documents:delete' doc.id %}" data-title="{{ doc.title }}" data-bs-toggle="modal"
                       data-bs-target="#deleteDocModal" title="Delete Document">
                       <i class="bi bi-trash"></i>
                     </button>
+                    {% endif %}
                   </div>
                 </td>
               </tr>

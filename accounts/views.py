@@ -6,8 +6,23 @@ from django.urls import reverse
 from django.http import JsonResponse
 from allauth.account.models import EmailAddress
 from allauth.account.internal.flows.email_verification import send_verification_email_to_address
+from allauth.account.views import SignupView
 from .forms import ProfileUpdateForm
 from .models import UserProfile
+
+
+class InviteAwareSignupView(SignupView):
+    """
+    Shadows allauth's account_signup route so a workspace invitation link's
+    ?email= query param pre-fills the signup form's email field.
+    """
+
+    def get_initial(self):
+        initial = super().get_initial()
+        email = self.request.GET.get('email')
+        if email:
+            initial['email'] = email
+        return initial
 
 class ResendVerificationEmailView(View):
     """Handles the /accounts/confirm-email/ page for link-based email verification.
@@ -50,21 +65,28 @@ class DashboardView(LoginRequiredMixin, View):
     login_url = "/accounts/login/"
 
     def get(self, request):
-        from documents.models import Document
         from chat.models import Conversation, Message
         from django.db.models import Sum
+        from teams.permissions import visible_documents_for
+        from teams.utils import get_active_workspace
 
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
-        
+
+        # Documents are scoped to whatever's currently active (Personal or a specific
+        # workspace) — same visibility rule as the My Documents list — so the dashboard
+        # doesn't blend a user's personal uploads with every workspace they belong to.
+        active_workspace = get_active_workspace(request)
+        documents_qs = visible_documents_for(request.user, active_workspace)
+
         # 1. Total Documents
-        doc_count = Document.objects.filter(user=request.user).count()
-        
+        doc_count = documents_qs.count()
+
         # 2. Total Pages Processed
-        total_pages = Document.objects.filter(user=request.user, status='ready').aggregate(Sum('page_count'))['page_count__sum'] or 0
-        
+        total_pages = documents_qs.filter(status='ready').aggregate(Sum('page_count'))['page_count__sum'] or 0
+
         # 3. Total Storage Used (formatted)
-        total_bytes = Document.objects.filter(user=request.user).aggregate(Sum('file_size'))['file_size__sum'] or 0
-        
+        total_bytes = documents_qs.aggregate(Sum('file_size'))['file_size__sum'] or 0
+
         size = float(total_bytes)
         for unit in ['B', 'KB', 'MB', 'GB']:
             if size < 1024:
@@ -74,12 +96,13 @@ class DashboardView(LoginRequiredMixin, View):
         else:
             total_size = f"{size:.1f} GB"
 
-        # 4. Conversations & Messages
+        # 4. Conversations & Messages — intentionally always personal, never workspace-scoped
+        # (conversations stay private to their creator even on a shared document).
         convo_count = Conversation.objects.filter(user=request.user).count()
         msg_count = Message.objects.filter(conversation__user=request.user).count()
 
         # 5. Recent Lists — only fetch fields actually displayed in the dashboard
-        recent_docs = Document.objects.filter(user=request.user).order_by('-uploaded_at').only(
+        recent_docs = documents_qs.order_by('-uploaded_at').only(
             'id', 'title', 'status', 'uploaded_at', 'file_size'
         )[:5]
         recent_chats = Conversation.objects.filter(user=request.user).order_by('-updated_at').only(
@@ -89,6 +112,7 @@ class DashboardView(LoginRequiredMixin, View):
         context = {
             "profile": profile,
             "page_title": "Dashboard",
+            "active_workspace": active_workspace,
             "doc_count": doc_count,
             "total_pages": total_pages,
             "total_size": total_size,

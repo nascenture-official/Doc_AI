@@ -8,4 +8,5 @@ urlpatterns = [
     path("profile/remove-avatar/", views.RemoveAvatarView.as_view(), name="remove_avatar"),
     path("confirm-email/", views.ResendVerificationEmailView.as_view(), name="account_email_verification_sent"),
     path("email/", RedirectView.as_view(pattern_name="profile", permanent=False), name="account_email"),
+    path("signup/", views.InviteAwareSignupView.as_view(), name="account_signup"),
 ]

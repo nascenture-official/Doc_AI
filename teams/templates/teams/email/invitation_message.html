@@ -1,0 +1,28 @@
+{% extends "emails/base_email.html" %}
+
+{% block header %}
+<div class="email-header">
+    <div class="logo">DocChat</div>
+    <h1>You're Invited</h1>
+    <p>Join a shared workspace</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<h2>Hello,</h2>
+
+<p><strong>{{ inviter.get_full_name|default:inviter.username }}</strong> ({{ inviter.email }}) invited you to join the workspace <strong>"{{ workspace.name }}"</strong> on DocChat as a <strong>{{ invitation.get_role_display }}</strong>.</p>
+
+<div class="highlight">
+    Workspace members can view shared documents and collaborate together, based on their role.
+</div>
+
+<div class="text-center">
+    <a href="{{ accept_url }}" class="cta-button">Accept Invitation</a>
+</div>
+<div class="code-box">{{ accept_url }}</div>
+
+<p class="text-muted">This invitation expires on {{ invitation.expires_at|date:"M d, Y" }}. If you weren't expecting this, you can safely ignore this email.</p>
+
+<p>Best regards,<br><strong>The DocChat Team</strong></p>
+{% endblock %}

@@ -1,0 +1,1 @@
+{{ inviter.get_full_name|default:inviter.username }} invited you to join "{{ workspace.name }}" on DocChat

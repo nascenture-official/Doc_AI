@@ -1,0 +1,37 @@
+{# ── Invite Member Modal ────────────────────────────── #}
+<div class="modal fade" id="inviteMemberModal" tabindex="-1" aria-labelledby="inviteMemberModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-toast); border:1px solid var(--border);">
+      <div class="modal-header border-bottom-0 pb-0">
+        <h5 class="modal-title fw-bold" id="inviteMemberModalLabel" style="color:var(--text-primary);">
+          <i class="bi bi-person-plus-fill me-2" style="color:var(--primary-light);"></i>Invite Member
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding-top: 16px;">
+        <div class="mb-3">
+          <label for="modal-invite-email" class="form-label" style="font-size:13px; color:var(--text-secondary);">Email Address</label>
+          <input type="email" class="form-control" id="modal-invite-email" placeholder="teammate@example.com"
+                 autocomplete="off" style="background:var(--bg-card); border-color:var(--border); color:var(--text-primary);">
+        </div>
+        <div class="mb-3">
+          <label for="modal-invite-role" class="form-label" style="font-size:13px; color:var(--text-secondary);">Role</label>
+          <select class="form-select" id="modal-invite-role" style="background:var(--bg-card); border-color:var(--border); color:var(--text-primary);">
+            <option value="member" selected>Member — can view all docs, edit only their own uploads</option>
+            <option value="admin">Admin — can manage members and all documents</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer border-top-0 pt-0">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm btn-primary" id="confirmInviteMemberBtn" data-workspace-id="{{ workspace.pk }}">
+          <span id="inviteMemberBtnText">Send Invite</span>
+          <span id="inviteMemberBtnLoader" style="display:none; align-items:center; gap:8px;">
+            <span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px;"></span>
+            Sending…
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

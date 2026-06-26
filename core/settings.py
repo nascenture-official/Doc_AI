@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "documents",
     "chat",
     "search",
+    "teams",
 ]
 
 MIDDLEWARE = [
@@ -67,6 +68,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "teams.context_processors.workspace_context",
             ],
         },
     },
@@ -268,6 +270,11 @@ LOGGING = {
             'propagate': False,
         },
         'search': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'teams': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
             'propagate': False,

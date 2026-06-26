@@ -29,10 +29,11 @@ def process_uploaded_document(document_id):
     try:
         # Step 1: Extract and chunk PDF content
         logger.info(f"Extracting and chunking document '{doc.title}'...")
-        langchain_chunks, page_count, pdf_title = extract_and_chunk_pdf(doc.file.path,doc.title)
+        langchain_chunks, page_count, pdf_title, extraction_method = extract_and_chunk_pdf(doc.file.path,doc.title)
 
         # Save page count and resolved PDF title back to the document record
         doc.page_count = page_count
+        doc.extraction_method = extraction_method
         if pdf_title:
             doc.title = pdf_title
 
@@ -63,7 +64,7 @@ def generate_summary_task(document_id, summary_type):
 
     try:
         logger.info(f"Extracting text for document '{doc.title}' to generate {summary_type} summary...")
-        langchain_chunks, _, _ = extract_and_chunk_pdf(doc.file.path, doc.title)
+        langchain_chunks, _, _, _ = extract_and_chunk_pdf(doc.file.path, doc.title)
         
         full_text = "\n\n".join([chunk.page_content for chunk in langchain_chunks])
         max_chars = 100000  # ~25k tokens
@@ -133,7 +134,7 @@ def translate_document_task(document_id, language):
 
     try:
         logger.info(f"Extracting text for document '{doc.title}' for translation to {language}...")
-        langchain_chunks, _, _ = extract_and_chunk_pdf(doc.file.path, doc.title)
+        langchain_chunks, _, _, _ = extract_and_chunk_pdf(doc.file.path, doc.title)
         
         full_text = "\n\n".join([chunk.page_content for chunk in langchain_chunks])
         
@@ -184,7 +185,7 @@ def rewrite_content_task(document_id, style):
 
     try:
         logger.info(f"Extracting text for document '{doc.title}' for rewriting in {style} style...")
-        langchain_chunks, _, _ = extract_and_chunk_pdf(doc.file.path, doc.title)
+        langchain_chunks, _, _, _ = extract_and_chunk_pdf(doc.file.path, doc.title)
         
         full_text = "\n\n".join([chunk.page_content for chunk in langchain_chunks])
         
@@ -230,7 +231,7 @@ def extract_key_points_task(document_id):
 
     try:
         logger.info(f"Extracting text for document '{doc.title}' to extract key points...")
-        langchain_chunks, _, _ = extract_and_chunk_pdf(doc.file.path, doc.title)
+        langchain_chunks, _, _, _ = extract_and_chunk_pdf(doc.file.path, doc.title)
         
         full_text = "\n\n".join([chunk.page_content for chunk in langchain_chunks])
         
@@ -275,7 +276,7 @@ def generate_faqs_task(document_id):
 
     try:
         logger.info(f"Extracting text for document '{doc.title}' to generate FAQs...")
-        langchain_chunks, _, _ = extract_and_chunk_pdf(doc.file.path, doc.title)
+        langchain_chunks, _, _, _ = extract_and_chunk_pdf(doc.file.path, doc.title)
         
         full_text = "\n\n".join([chunk.page_content for chunk in langchain_chunks])
         
