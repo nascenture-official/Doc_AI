@@ -382,6 +382,18 @@
   let annotationsData = { highlights: [], notes: [], bookmarks: [] };
   let currentSelectionData = null; // Stores range info before creating highlight
 
+  // Per-page index of selectable text items (unscaled PDF-space rects, in reading order).
+  // Built from the actual rendered span geometry rather than recomputed from PDF transforms,
+  // so it always matches what's drawn. Selection is resolved against this instead of the
+  // browser's native Selection/Range — PDF.js approximates span widths from substituted font
+  // metrics, so adjacent inline runs (e.g. roman text next to italic math, footnote markers)
+  // routinely get overlapping bounding boxes, which makes native drag-selection hit-testing
+  // pick the wrong anchor/focus and silently select half the intended text, all of it, or
+  // nothing. Resolving the drag's start/end points against this index by item-index range
+  // instead sidesteps that entirely.
+  let pageTextItems = {};
+  let dragStartPoint = null; // {pageNum, x, y} in unscaled PDF-space coords, set on mousedown
+
   // Initialize PDF
   async function initPDF() {
     try {
@@ -517,6 +529,29 @@
     // dragging a selection through those gaps makes the browser snap the
     // anchor/focus to the wrong span, so the wrong words get selected.
     bindTextLayerSelection(textLayerDiv);
+
+    // Index each rendered span's actual geometry directly off the DOM, in render order.
+    // Built from spans rather than zipped against textContent.items by index — pdf.js's
+    // renderTextLayer combines some adjacent items into fewer spans (and splits others),
+    // so the two arrays don't line up 1:1; reading the spans themselves is always correct
+    // by construction since it's exactly what's rendered/visible.
+    const spans = Array.from(textLayerDiv.children).filter(el => el.tagName === 'SPAN');
+    const pageRect = pageWrapper.getBoundingClientRect();
+    const items = [];
+    for (const span of spans) {
+      const str = span.textContent;
+      // Whitespace-only spans add no value as selection anchors and only add ambiguity.
+      if (!str || !str.trim()) continue;
+      const r = span.getBoundingClientRect();
+      items.push({
+        str,
+        x1: (r.left - pageRect.left) / scale,
+        y1: (r.top - pageRect.top) / scale,
+        x2: (r.right - pageRect.left) / scale,
+        y2: (r.bottom - pageRect.top) / scale,
+      });
+    }
+    pageTextItems[pageNum] = items;
   }
 
   function bindTextLayerSelection(div) {
@@ -738,59 +773,115 @@
   const pdfContainer = document.getElementById('pdf-container');
   const toolbar = document.getElementById('highlight-toolbar');
 
+  // Index of the item nearest a point, biased heavily toward vertical proximity so a
+  // point between two lines snaps to the visually nearer line rather than a far-away
+  // word that happens to share similar x. Used to resolve drag start/end into anchors.
+  function nearestItemIndex(items, x, y) {
+    let best = -1, bestDist = Infinity;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const cx = Math.max(it.x1, Math.min(x, it.x2));
+      const cy = Math.max(it.y1, Math.min(y, it.y2));
+      const dx = x - cx, dy = y - cy;
+      const dist = dx * dx + dy * dy * 16;
+      if (dist < bestDist) { bestDist = dist; best = i; }
+    }
+    return best;
+  }
+
+  // Selects every item between the two drag points' nearest anchors, inclusive, by
+  // index range in the page's reading order — not by re-deriving geometry, so it can't
+  // be thrown off by the overlapping spans that make native Range selection unreliable.
+  function selectItemsBetween(items, start, end) {
+    if (!items.length) return [];
+    const i1 = nearestItemIndex(items, start.x, start.y);
+    const i2 = nearestItemIndex(items, end.x, end.y);
+    if (i1 === -1 || i2 === -1) return [];
+    return items.slice(Math.min(i1, i2), Math.max(i1, i2) + 1);
+  }
+
+  // Groups selected items into one rect per visual line (by vertical overlap) instead
+  // of one rect per item, so the highlight renders as continuous bars per line.
+  function mergeIntoLineRects(items) {
+    if (!items.length) return [];
+    const lines = [];
+    let cur = { x1: items[0].x1, y1: items[0].y1, x2: items[0].x2, y2: items[0].y2 };
+    for (let i = 1; i < items.length; i++) {
+      const it = items[i];
+      const overlap = Math.min(cur.y2, it.y2) - Math.max(cur.y1, it.y1);
+      const sameLine = overlap > 0.5 * Math.min(cur.y2 - cur.y1, it.y2 - it.y1);
+      if (sameLine) {
+        cur.x1 = Math.min(cur.x1, it.x1);
+        cur.x2 = Math.max(cur.x2, it.x2);
+        cur.y1 = Math.min(cur.y1, it.y1);
+        cur.y2 = Math.max(cur.y2, it.y2);
+      } else {
+        lines.push(cur);
+        cur = { x1: it.x1, y1: it.y1, x2: it.x2, y2: it.y2 };
+      }
+    }
+    lines.push(cur);
+    return lines;
+  }
+
+  function pagePoint(e) {
+    const pageWrapper = e.target.closest('.page-wrapper');
+    if (!pageWrapper) return null;
+    const pageNum = parseInt(pageWrapper.dataset.pageNumber);
+    const scale = pageScales[pageNum];
+    const pageRect = pageWrapper.getBoundingClientRect();
+    return {
+      pageNum,
+      x: (e.clientX - pageRect.left) / scale,
+      y: (e.clientY - pageRect.top) / scale,
+    };
+  }
+
+  pdfContainer.addEventListener('mousedown', function(e) {
+    dragStartPoint = pagePoint(e);
+  });
+
   pdfContainer.addEventListener('mouseup', function(e) {
     setTimeout(() => {
-      const selection = window.getSelection();
-      if (!selection.isCollapsed && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        const text = selection.toString().trim();
-        
-        if (text.length > 0) {
-          // Find which page we are on by traversing up to page-wrapper
-          let node = range.startContainer;
-          let pageWrapper = null;
-          while (node && node !== document.body) {
-            if (node.classList && node.classList.contains('page-wrapper')) {
-              pageWrapper = node;
-              break;
-            }
-            node = node.parentNode;
-          }
+      // Native selection is left to render as transient drag feedback, but the actual
+      // highlight is always built from pageTextItems below — clear it so it doesn't
+      // visually linger once we've drawn our own highlight/toolbar.
+      window.getSelection().removeAllRanges();
 
-          if (pageWrapper) {
-            const pageNum = parseInt(pageWrapper.dataset.pageNumber);
-            const scale = pageScales[pageNum];
-            const pageRect = pageWrapper.getBoundingClientRect();
-            
-            // Get all rects in the selection
-            const clientRects = Array.from(range.getClientRects());
-            
-            // Convert to PDF coordinates (relative to unscaled page)
-            const normalizedRects = clientRects.map(r => {
-              return {
-                x1: (r.left - pageRect.left) / scale,
-                y1: (r.top - pageRect.top) / scale,
-                x2: (r.right - pageRect.left) / scale,
-                y2: (r.bottom - pageRect.top) / scale,
-                page: pageNum
-              };
-            });
+      const start = dragStartPoint;
+      const end = pagePoint(e);
+      dragStartPoint = null;
 
-            currentSelectionData = {
-              text: text,
-              page_number: pageNum,
-              rects: normalizedRects
-            };
-
-            // Show toolbar near mouse
-            toolbar.style.display = 'flex';
-            toolbar.style.left = (e.pageX + 10) + 'px';
-            toolbar.style.top = (e.pageY - 40) + 'px';
-            return;
-          }
-        }
+      if (!start || !end || start.pageNum !== end.pageNum) {
+        toolbar.style.display = 'none';
+        return;
       }
-      toolbar.style.display = 'none';
+
+      // Require a real drag, not just a click, so a stray click doesn't select a word.
+      const movedFarEnough = Math.hypot(end.x - start.x, end.y - start.y) > 3 / pageScales[start.pageNum];
+      if (!movedFarEnough) {
+        toolbar.style.display = 'none';
+        return;
+      }
+
+      const items = selectItemsBetween(pageTextItems[start.pageNum] || [], start, end);
+      if (!items.length) {
+        toolbar.style.display = 'none';
+        return;
+      }
+
+      const text = items.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
+      const rects = mergeIntoLineRects(items).map(r => ({ ...r, page: start.pageNum }));
+
+      currentSelectionData = {
+        text: text,
+        page_number: start.pageNum,
+        rects: rects
+      };
+
+      toolbar.style.display = 'flex';
+      toolbar.style.left = (e.pageX + 10) + 'px';
+      toolbar.style.top = (e.pageY - 40) + 'px';
     }, 10);
   });
 

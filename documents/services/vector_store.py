@@ -78,20 +78,22 @@ def delete_vector_index(document_id):
         logger.error(f"Failed to delete vectors for document {document_id}: {str(e)}")
         return False
 
-def keyword_search_in_vectors(query,user_id=None):
-    """claud
+def keyword_search_in_vectors(query, document_ids=None):
+    """
     Performs a simple keyword/phrase search directly in the raw text documents stored
-    inside the Chroma collection.
+    inside the Chroma collection, scoped to an explicit list of document ids.
+    Filtering by document_id (resolved by the caller via the workspace/sharing-aware
+    visibility helpers) rather than by uploader user_id — chunks are tagged only with
+    the uploader's user_id, so a user_id filter would hide workspace-shared documents
+    from anyone who didn't personally upload them.
     Returns list of dicts: [{'text': str, 'page': int, 'source': str}]
     """
-    db = get_vector_store()
-    
-    where_clause = {}
-    if user_id:
-        where_clause["user_id"] = str(user_id)
-    else:
+    if not document_ids:
         return []
-    
+
+    db = get_vector_store()
+    where_clause = {"document_id": {"$in": [str(doc_id) for doc_id in document_ids]}}
+
     # Get raw documents from the collection matching the filter
     try:
         results = db._collection.get(

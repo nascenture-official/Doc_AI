@@ -121,6 +121,7 @@ body {
   line-height: 1.6;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 a {
@@ -737,6 +738,21 @@ img {
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
+/* .btn-primary-custom defaults to a full-width hero CTA (auth screens). Pair it with
+   Bootstrap's .btn-sm wherever it's used as a normal inline/toolbar button instead. */
+.btn-primary-custom.btn-sm {
+  width: auto;
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.35);
+  white-space: nowrap;
+}
+
+.btn-primary-custom.btn-sm:hover {
+  transform: none;
+}
+
 /* Google OAuth button */
 .btn-google {
   display: inline-flex;
@@ -797,6 +813,62 @@ img {
   background: rgba(99, 102, 241, 0.1);
   border-color: var(--primary);
   color: var(--primary-light);
+}
+
+/* Neutral + danger outline variants — same shape/weight as .btn-outline-custom so plain
+   Bootstrap .btn-outline-secondary/.btn-outline-danger don't look out of place next to it. */
+.btn-outline-custom-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-decoration: none;
+}
+
+.btn-outline-custom-secondary:hover {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.btn-outline-custom-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-decoration: none;
+}
+
+.btn-outline-custom-danger:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-outline-custom-secondary.btn-sm,
+.btn-outline-custom-danger.btn-sm,
+.btn-outline-custom.btn-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 8px;
 }
 
 /* Custom Checkboxes */
@@ -1108,6 +1180,10 @@ img {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .topbar-actions {
@@ -1446,6 +1522,14 @@ img {
   .auth-card {
     padding: 32px 28px;
   }
+
+  .topbar {
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .topbar-actions {
+    gap: 8px;
+  }
 }
 
 /* Mobile */
@@ -1492,6 +1576,13 @@ img {
   .section-card {
     padding: 20px 16px;
   }
+
+  .topbar {
+    padding: 0 12px;
+  }
+  .topbar-title {
+    font-size: 16px;
+  }
 }
 
 /* Very small phones */
@@ -1504,6 +1595,46 @@ img {
   .btn-google {
     font-size: 14px;
     padding: 11px 20px;
+  }
+}
+
+/* Document Title Cell */
+.doc-title-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  max-width: 320px;
+  min-width: 0;
+}
+
+.doc-title-cell > i {
+  flex-shrink: 0;
+}
+
+.doc-title-cell a,
+.doc-title-cell > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  display: block;
+}
+
+.doc-title-cell a span {
+  display: inline;
+}
+
+@media (max-width: 768px) {
+  .doc-title-cell {
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 575px) {
+  .doc-title-cell {
+    max-width: 160px;
   }
 }
 

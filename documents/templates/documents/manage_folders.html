@@ -126,8 +126,11 @@
           <div class="dropdown">
             <i class="bi bi-three-dots action-menu" data-bs-toggle="dropdown" aria-expanded="false"></i>
             <ul class="dropdown-menu dropdown-menu-end" style="background:var(--bg-card); border:1px solid var(--border);">
+              {% if folder.can_edit %}
               <li><a class="dropdown-item" href="{% url 'documents:folder_edit_page' folder.pk %}">Edit</a></li>
+              {% endif %}
               <li><a class="dropdown-item" href="{% url 'documents:folder_add_page' %}?parent_id={{ folder.pk }}">Add sub-folder</a></li>
+              {% if folder.can_edit %}
               <li><a class="dropdown-item" href="#" onclick="openAddDocumentModal({{ folder.pk }})">Add document</a></li>
               <li><hr class="dropdown-divider" style="border-color:var(--border);"></li>
               <li>
@@ -139,6 +142,7 @@
                   Delete
                 </button>
               </li>
+              {% endif %}
             </ul>
           </div>
         </div>
@@ -171,8 +175,8 @@
         </form>
       </div>
       <div class="modal-footer border-top-0 pt-0">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="submitAddDocuments()">Save</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="submitAddDocuments()">Save</button>
       </div>
     </div>
   </div>

@@ -1,0 +1,37 @@
+{# ── Workspace switcher dropdown ──────────────────────────────── #}
+<div class="dropdown">
+  <button class="btn btn-link p-2 text-secondary dropdown-toggle" id="workspaceSwitcherBtn" data-bs-toggle="dropdown"
+    aria-expanded="false" style="border:none; background:none; font-size:13px; color:var(--text-secondary); max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-flex; align-items: center;">
+    <i class="bi bi-people-fill me-1" style="flex-shrink: 0;"></i>
+    <span style="overflow: hidden; text-overflow: ellipsis;">{% if active_workspace %}{{ active_workspace.name }}{% else %}Personal{% endif %}</span>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end" style="background:var(--bg-card); border:1px solid var(--border); min-width:220px;">
+    <li>
+      <form method="post" action="{% url 'teams:switch' %}" class="px-1">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <input type="hidden" name="workspace_id" value="">
+        <button type="submit" class="dropdown-item {% if not active_workspace %}active{% endif %}" style="font-size:14px;">
+          <i class="bi bi-person-fill me-2"></i>Personal
+        </button>
+      </form>
+    </li>
+    {% if user_workspace_memberships %}
+    <li><hr class="dropdown-divider" style="border-color:var(--border);"></li>
+    {% for membership in user_workspace_memberships %}
+    <li>
+      <form method="post" action="{% url 'teams:switch' %}" class="px-1">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <input type="hidden" name="workspace_id" value="{{ membership.workspace.pk }}">
+        <button type="submit" class="dropdown-item {% if active_workspace.pk == membership.workspace.pk %}active{% endif %}" style="font-size:14px;">
+          <i class="bi bi-people-fill me-2"></i>{{ membership.workspace.name }}
+        </button>
+      </form>
+    </li>
+    {% endfor %}
+    {% endif %}
+    <li><hr class="dropdown-divider" style="border-color:var(--border);"></li>
+    <li><a class="dropdown-item" href="{% url 'teams:list' %}" style="font-size:14px;"><i class="bi bi-gear me-2"></i>Manage Workspaces</a></li>
+  </ul>
+</div>

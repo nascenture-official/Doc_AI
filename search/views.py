@@ -4,6 +4,8 @@ from django.views import View
 from django.core.paginator import Paginator
 from documents.models import Document
 from documents.services.vector_store import keyword_search_in_vectors
+from teams.utils import get_active_workspace
+from teams.permissions import visible_documents_for
 
 SEARCH_PAGE_SIZE = 10
 
@@ -20,11 +22,13 @@ class SearchView(LoginRequiredMixin, View):
     def get(self, request):
         query = request.GET.get('q', '').strip()
         all_results = []
-        ready_docs = Document.objects.filter(user=request.user, status='ready')
+        ready_docs = visible_documents_for(request.user, get_active_workspace(request)).filter(status='ready')
 
         if query and ready_docs.exists():
-            # Perform keyword search across FAISS indices by user_id directly
-            all_results = keyword_search_in_vectors(query, user_id=request.user.id)
+            # Filter by explicit document ids — not just user_id metadata — so workspace-shared
+            # and individually-shared documents are searchable too, not only ones the
+            # requester personally uploaded.
+            all_results = keyword_search_in_vectors(query, document_ids=list(ready_docs.values_list('id', flat=True)))
 
         total_count = len(all_results)
         paginator = Paginator(all_results, SEARCH_PAGE_SIZE)

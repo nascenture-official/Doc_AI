@@ -31,9 +31,16 @@ A web application built with Django that allows users to upload PDF files and ha
 - Side-by-side comparison tool for multiple PDF versions
 - Automatically detect and highlight added, removed, and modified sections
 
+### Team Collaboration
+- Shared workspaces with Owner / Admin / Member roles
+- Email-based workspace invitations with accept/decline links
+- Ad-hoc per-document sharing (view or edit) independent of workspace membership
+- Centralized permission checks govern document/folder visibility across documents, chat, and search
+
 ### Management & Platform
 - User authentication with email verification and Google OAuth
 - PDF upload with real-time background processing status
+- Automatic OCR fallback (RapidOCR) for scanned/image-only PDF pages
 - Arbitrary nested folder organization for document management
 - Conversation history with infinite-scroll message loading
 - User dashboard with document stats, storage usage, and recent activity
@@ -185,6 +192,7 @@ python manage.py test accounts
 python manage.py test documents
 python manage.py test chat
 python manage.py test search
+python manage.py test teams
 ```
 
 ## Directory Structure
@@ -196,6 +204,7 @@ doc-chat/
 ├── documents/      PDF upload, background processing, vector indexing, summaries
 ├── chat/           Conversations, messages, RAG pipeline, SSE streaming
 ├── search/         Keyword search across the vector store without LLM
+├── teams/          Shared workspaces, roles, invitations, and document sharing
 ├── templates/      HTML templates for all apps
 ├── static/         CSS, JavaScript, and static assets
 ├── media/          Uploaded PDFs and user avatars
@@ -207,10 +216,10 @@ doc-chat/
 
 ### PDF → Vector Pipeline
 
-When a PDF is uploaded, a background task extracts its content page-by-page using LangChain's `PyPDFLoader` (in `page` mode), splits the text into overlapping chunks using `RecursiveCharacterTextSplitter`, and stores the resulting embeddings in a ChromaDB collection (served via HTTP on port 8001) with per-document and per-user metadata.
+When a PDF is uploaded, a background task extracts its content page-by-page using LangChain's `PyPDFLoader` (in `page` mode). Pages with little or no extractable text (scanned/image-only pages) automatically fall back to RapidOCR so scanned PDFs become just as searchable and chattable as native ones. The text is then split into overlapping chunks using `RecursiveCharacterTextSplitter` and stored as embeddings in a ChromaDB collection (served via HTTP on port 8001) with per-document and per-user metadata.
 
 ```
-Upload → Extract (PyPDFLoader, page mode) → Chunk (800 chars, 150 overlap) → Embed (text-embedding-3-small) → ChromaDB
+Upload → Extract (PyPDFLoader, page mode, OCR fallback for scanned pages) → Chunk (1200 chars, 250 overlap) → Embed (text-embedding-3-small) → ChromaDB
 ```
 
 Document status progresses through: `uploading` → `processing` → `ready` / `failed`
@@ -242,7 +251,8 @@ Every chat message goes through two phases:
 - ChromaDB (HTTP server mode)
 - OpenAI (`gpt-4o-mini`, `gpt-5-mini`, `text-embedding-3-small`)
 - LangChain
-- PyPDF / PyMuPDF / pymupdf4llm
+- PyPDF / PyMuPDF (fitz)
+- RapidOCR (scanned-page OCR fallback)
 - HTMX
 - django-allauth
 - django-q2

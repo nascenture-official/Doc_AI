@@ -286,6 +286,7 @@
 {% endblock %}
 
 {% block content %}
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}">
 <div class="container-fluid px-0">
 
   <div class="mb-4">
@@ -317,6 +318,9 @@
             Processing Document...
           </span>
           {% endif %}
+          {% if document.workspace %}
+          <span class="badge-custom badge-indigo" style="margin-left:8px;"><i class="bi bi-people-fill"></i> {{ document.workspace.name }}</span>
+          {% endif %}
         </div>
       </div>
 
@@ -336,11 +340,19 @@
         <button type="button" class="btn-action-lg btn-download" data-bs-toggle="modal" data-bs-target="#compareDocModal" title="Compare with...">
           <i class="bi bi-files"></i>
         </button>
+        {% if can_manage_shares %}
+        <button type="button" class="btn-action-lg btn-download" data-bs-toggle="modal" data-bs-target="#documentShareModal"
+          data-doc-id="{{ document.id }}" title="Share Document">
+          <i class="bi bi-share-fill"></i>
+        </button>
+        {% endif %}
+        {% if can_delete_document %}
         <button type="button" class="btn-action-lg btn-delete-lg btn-delete-doc" data-id="{{ document.id }}"
           data-url="{% url 'documents:delete' document.id %}" data-title="{{ document.title }}" data-bs-toggle="modal"
           data-bs-target="#deleteDocModal" title="Delete Document">
           <i class="bi bi-trash"></i>
         </button>
+        {% endif %}
       </div>
     </div>
 
@@ -362,6 +374,20 @@
       <div class="meta-item">
         <div class="meta-label">Processed On</div>
         <div class="meta-value">{{ document.processed_at|date:"M d, Y, I:i A" }}</div>
+      </div>
+      {% endif %}
+      {% if document.status == 'ready' %}
+      <div class="meta-item">
+        <div class="meta-label">Extraction Method</div>
+        <div class="meta-value">
+          {% if document.extraction_method == 'ocr' %}
+            <i class="bi bi-camera-fill"></i> OCR (Scanned)
+          {% elif document.extraction_method == 'mixed' %}
+            <i class="bi bi-camera-fill"></i> Mixed (Native + OCR)
+          {% else %}
+            Native Text
+          {% endif %}
+        </div>
       </div>
       {% endif %}
     </div>
@@ -430,10 +456,14 @@
           {% else %}
           <div class="text-center py-5" id="generate-short-wrapper">
             <p class="text-muted mb-3">No short summary has been generated yet.</p>
+            {% if can_edit_document %}
             <button type="button" class="btn btn-primary btn-generate-summary" data-type="short"
               data-doc-id="{{ document.id }}">
               <i class="bi bi-magic me-1"></i> Generate Short Summary
             </button>
+            {% else %}
+            <p class="text-muted"><i class="bi bi-info-circle me-1"></i> You have view-only access to this document.</p>
+            {% endif %}
           </div>
           {% endif %}
           {% elif document.status == 'failed' %}
@@ -461,10 +491,14 @@
           {% else %}
           <div class="text-center py-5" id="generate-detailed-wrapper">
             <p class="text-muted mb-3">No detailed summary has been generated yet.</p>
+            {% if can_edit_document %}
             <button type="button" class="btn btn-primary btn-generate-summary" data-type="detailed"
               data-doc-id="{{ document.id }}">
               <i class="bi bi-magic me-1"></i> Generate Detailed Summary
             </button>
+            {% else %}
+            <p class="text-muted"><i class="bi bi-info-circle me-1"></i> You have view-only access to this document.</p>
+            {% endif %}
           </div>
           {% endif %}
           {% elif document.status == 'failed' %}
@@ -485,6 +519,7 @@
       <div class="tab-pane fade" id="translation" role="tabpanel" aria-labelledby="translation-tab">
         <div class="summary-container" id="translation-container">
           {% if document.status == 'ready' %}
+          {% if can_edit_document %}
           <div class="d-flex gap-2 mb-4 justify-content-center align-items-center">
             <div class="dropdown">
               <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="translation-language-btn">
@@ -504,6 +539,9 @@
           <div id="translation-result-wrapper">
             <p class="text-center text-muted py-5">Select a language and click translate.</p>
           </div>
+          {% else %}
+          <p class="text-muted text-center py-5"><i class="bi bi-info-circle me-1"></i> You have view-only access to this document, so you can't request a translation.</p>
+          {% endif %}
           {% elif document.status == 'failed' %}
           <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Translation is unavailable because document
             processing failed.</p>
@@ -522,6 +560,7 @@
       <div class="tab-pane fade" id="rewrite" role="tabpanel" aria-labelledby="rewrite-tab">
         <div class="summary-container" id="rewrite-container">
           {% if document.status == 'ready' %}
+          {% if can_edit_document %}
           <div class="d-flex gap-2 mb-4 justify-content-center align-items-center">
             <div class="dropdown">
               <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="rewrite-style-btn">
@@ -539,6 +578,7 @@
               <i class="bi bi-pencil-square me-1"></i> <span class="btn-text">Rewrite Document</span>
             </button>
           </div>
+          {% endif %}
           <div id="rewrite-result-wrapper">
             {% if document.rewrite_content %}
               <div class="summary-markdown">
@@ -548,8 +588,10 @@
                 </div>
                 <div>{{ document.rewrite_content|markdown_to_html }}</div>
               </div>
-            {% else %}
+            {% elif can_edit_document %}
               <p class="text-center text-muted py-5">Select a style and click Rewrite Document.</p>
+            {% else %}
+              <p class="text-muted text-center py-5"><i class="bi bi-info-circle me-1"></i> You have view-only access to this document, so you can't request a rewrite.</p>
             {% endif %}
           </div>
           {% elif document.status == 'failed' %}
@@ -567,11 +609,13 @@
       <div class="tab-pane fade" id="key-points" role="tabpanel" aria-labelledby="key-points-tab">
         <div class="summary-container" id="key-points-container">
           {% if document.status == 'ready' %}
+          {% if can_edit_document %}
           <div class="d-flex mb-4 justify-content-center">
             <button type="button" class="btn btn-primary" id="btn-extract-key-points" data-doc-id="{{ document.id }}">
               <i class="bi bi-list-check me-1"></i> <span class="btn-text">{% if document.key_points %}Regenerate Key Points{% else %}Extract Key Points{% endif %}</span>
             </button>
           </div>
+          {% endif %}
           <div id="key-points-result-wrapper">
             {% if document.key_points %}
               <div class="summary-markdown">
@@ -580,8 +624,10 @@
                 </div>
                 <div>{{ document.key_points|markdown_to_html }}</div>
               </div>
-            {% else %}
+            {% elif can_edit_document %}
               <p class="text-center text-muted py-5">Click Extract Key Points to generate a summary of important points.</p>
+            {% else %}
+              <p class="text-muted text-center py-5"><i class="bi bi-info-circle me-1"></i> You have view-only access to this document, so you can't extract key points.</p>
             {% endif %}
           </div>
           {% elif document.status == 'failed' %}
@@ -599,11 +645,13 @@
       <div class="tab-pane fade" id="faqs" role="tabpanel" aria-labelledby="faqs-tab">
         <div class="summary-container" id="faqs-container">
           {% if document.status == 'ready' %}
+          {% if can_edit_document %}
           <div class="d-flex mb-4 justify-content-center">
             <button type="button" class="btn btn-primary" id="btn-generate-faqs" data-doc-id="{{ document.id }}">
               <i class="bi bi-question-circle me-1"></i> <span class="btn-text">{% if document.faqs %}Regenerate FAQs{% else %}Generate FAQs{% endif %}</span>
             </button>
           </div>
+          {% endif %}
           <div id="faqs-result-wrapper">
             {% if document.faqs %}
               <div class="summary-markdown">
@@ -612,8 +660,10 @@
                 </div>
                 <div>{{ document.faqs|markdown_to_html }}</div>
               </div>
-            {% else %}
+            {% elif can_edit_document %}
               <p class="text-center text-muted py-5">Click Generate FAQs to create a list of common questions and answers.</p>
+            {% else %}
+              <p class="text-muted text-center py-5"><i class="bi bi-info-circle me-1"></i> You have view-only access to this document, so you can't generate FAQs.</p>
             {% endif %}
           </div>
           {% elif document.status == 'failed' %}
@@ -669,9 +719,14 @@
   </div>
 </div>
 
+{% if can_manage_shares %}
+{% include "documents/_document_share_modal.html" %}
+{% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/teams.js' %}"></script>
 <script>
   $(function () {
     // Delete Document logic (uses bootstrap modal confirmation)
