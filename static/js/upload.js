@@ -17,7 +17,7 @@ $(function () {
   const uploadUrl = $('#upload-url').val();
   const csrfToken = $('#csrf-token').val() || getCookie('csrftoken');
 
-  const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
   function getCookie(name) {
     const match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]*)'));
@@ -81,7 +81,7 @@ $(function () {
       }
 
       if (file.size > MAX_FILE_SIZE) {
-        window.showToast(`"${file.name}" is too large. Max size is 20MB.`, 'danger');
+        window.showToast(`"${file.name}" is too large. Max size is 50MB.`, 'danger');
         return;
       }
 
@@ -286,7 +286,7 @@ $(function () {
       document.getElementById('deleteModalDocTitle').textContent = docTitle;
 
       const $confirmBtn = $('#confirmDeleteDocBtn');
-      
+
       // Clear previous click listener and bind new one
       $confirmBtn.off('click').on('click', function () {
         $confirmBtn.prop('disabled', true);
@@ -302,44 +302,44 @@ $(function () {
             'X-Requested-With': 'XMLHttpRequest',
           },
         })
-        .then(res => {
-          if (!res.ok) throw new Error('Server returned ' + res.status);
-          return res.json();
-        })
-        .then(data => {
-          const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
-          if (modalInstance) modalInstance.hide();
+          .then(res => {
+            if (!res.ok) throw new Error('Server returned ' + res.status);
+            return res.json();
+          })
+          .then(data => {
+            const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
+            if (modalInstance) modalInstance.hide();
 
-          if (data.success) {
-            $(`#doc-row-${docId}`).fadeOut(300, function () {
-              $(this).remove();
-              updateCounter(-1);
+            if (data.success) {
+              $(`#doc-row-${docId}`).fadeOut(300, function () {
+                $(this).remove();
+                updateCounter(-1);
 
-              // If no rows left, show empty state
-              if ($tbody.children('tr').length === 0) {
-                $tableSection.addClass('d-none');
-                $emptyState.removeClass('d-none');
-              }
-            });
-            window.showToast('Document deleted successfully.', 'success');
-          } else {
-            window.showToast(data.error || 'Failed to delete document.', 'danger');
-          }
-        })
-        .catch(err => {
-          console.error('Delete error:', err);
-          window.showToast('Something went wrong. Please try again.', 'danger');
-          const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
-          if (modalInstance) modalInstance.hide();
-        })
-        .finally(() => {
-          // Reset modal button states
-          $confirmBtn.prop('disabled', false);
-          $('#deleteDocBtnText').show();
-          $('#deleteDocBtnLoader').hide();
-          $('#deleteDocCancelBtn').prop('disabled', false);
-          $('#deleteDocModalClose').prop('disabled', false);
-        });
+                // If no rows left, show empty state
+                if ($tbody.children('tr').length === 0) {
+                  $tableSection.addClass('d-none');
+                  $emptyState.removeClass('d-none');
+                }
+              });
+              window.showToast('Document deleted successfully.', 'success');
+            } else {
+              window.showToast(data.error || 'Failed to delete document.', 'danger');
+            }
+          })
+          .catch(err => {
+            console.error('Delete error:', err);
+            window.showToast('Something went wrong. Please try again.', 'danger');
+            const modalInstance = bootstrap.Modal.getInstance(deleteDocModal);
+            if (modalInstance) modalInstance.hide();
+          })
+          .finally(() => {
+            // Reset modal button states
+            $confirmBtn.prop('disabled', false);
+            $('#deleteDocBtnText').show();
+            $('#deleteDocBtnLoader').hide();
+            $('#deleteDocCancelBtn').prop('disabled', false);
+            $('#deleteDocModalClose').prop('disabled', false);
+          });
       });
     });
   }

@@ -1,4 +1,5 @@
 import logging
+from celery import shared_task
 from django.utils import timezone
 from django.conf import settings
 from documents.models import Document
@@ -9,13 +10,13 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 logger = logging.getLogger(__name__)
 
-def process_uploaded_document(document_id):
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def process_uploaded_document(self, document_id):
     """
     Background worker task to process an uploaded document:
     1. Extracts and chunks text using PyMuPDF/pymupdf4llm & LangChain.
-    2. Builds and saves a local FAISS vector store.
-    3. Generates short and detailed summaries using OpenAI.
-    4. Updates document status to 'ready' (or 'failed' if error).
+    2. Upserts dense + sparse (BM25) vectors into Pinecone.
+    3. Updates document status to 'ready' (or 'failed' if error).
     """
     try:
         doc = Document.objects.get(id=document_id)
@@ -37,8 +38,8 @@ def process_uploaded_document(document_id):
         if pdf_title:
             doc.title = pdf_title
 
-        # Step 2: Build Chroma index (saves text + vectors locally on disk)
-        logger.info(f"Creating Chroma index for document '{doc.title}'...")
+        # Step 2: Upsert dense + sparse vectors into Pinecone
+        logger.info(f"Upserting Pinecone vectors for document '{doc.title}'...")
         create_vector_index(doc.id, doc.user_id, langchain_chunks)
 
         doc.status = 'ready'
@@ -52,7 +53,8 @@ def process_uploaded_document(document_id):
         doc.error_message = str(e)
         doc.save()
 
-def generate_summary_task(document_id, summary_type):
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def generate_summary_task(self, document_id, summary_type):
     """
     Background worker task to generate a short or detailed summary for a document.
     """
@@ -111,7 +113,8 @@ def generate_summary_task(document_id, summary_type):
             doc.summary_long = "Failed to generate detailed summary."
         doc.save()
 
-def translate_document_task(document_id, language):
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def translate_document_task(self, document_id, language):
     """
     Background worker task to translate a document into a specified language.
     """
@@ -173,7 +176,8 @@ def translate_document_task(document_id, language):
         translation.error_message = str(e)
         translation.save()
 
-def rewrite_content_task(document_id, style):
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def rewrite_content_task(self, document_id, style):
     """
     Background worker task to rewrite a document in a specified style.
     """
@@ -219,7 +223,8 @@ def rewrite_content_task(document_id, style):
         doc.save()
 
 
-def extract_key_points_task(document_id):
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def extract_key_points_task(self, document_id):
     """
     Background worker task to extract key points from a document.
     """
@@ -264,7 +269,8 @@ def extract_key_points_task(document_id):
         doc.save()
 
 
-def generate_faqs_task(document_id):
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def generate_faqs_task(self, document_id):
     """
     Background worker task to generate FAQs from a document.
     """
@@ -308,7 +314,8 @@ def generate_faqs_task(document_id):
         doc.faqs = "Failed to generate FAQs."
         doc.save()
 
-def compare_documents_task(comparison_id):
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def compare_documents_task(self, comparison_id):
     """
     Background worker task to compare two documents.
     1. Extracts clean, page-ordered text from both PDFs using PyMuPDF.

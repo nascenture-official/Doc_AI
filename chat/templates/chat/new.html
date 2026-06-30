@@ -169,7 +169,13 @@
       {% csrf_token %}
 
       <div class="mb-4">
-        <label class="form-label mb-3">Select Documents (Max 5 recommended)</label>
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <label class="form-label mb-0">Select Documents</label>
+          <span id="doc-counter" class="badge" style="background: rgba(99,102,241,0.15); color: var(--primary-light); font-size: 12px; padding: 5px 10px; border-radius: 20px;">0 / 5 selected</span>
+        </div>
+        <div id="doc-limit-warning" class="alert alert-warning py-2 px-3 mb-3" style="font-size: 13px; display: none;">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i> Maximum 5 documents reached. Deselect one to choose another.
+        </div>
         
         {% if documents %}
           <div class="docs-list-scroll">
@@ -218,4 +224,43 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const MAX = 5;
+  const checkboxes = Array.from(document.querySelectorAll('.doc-checkbox-input'));
+  const counter = document.getElementById('doc-counter');
+  const warning = document.getElementById('doc-limit-warning');
+  const submitBtn = document.querySelector('button[type="submit"]');
+
+  function update() {
+    const checked = checkboxes.filter(c => c.checked).length;
+    const atLimit = checked >= MAX;
+
+    counter.textContent = `${checked} / ${MAX} selected`;
+    counter.style.background = atLimit ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.15)';
+    counter.style.color = atLimit ? '#ef4444' : 'var(--primary-light)';
+    warning.style.display = atLimit ? 'block' : 'none';
+
+    checkboxes.forEach(cb => {
+      if (!cb.checked) {
+        cb.disabled = atLimit;
+        const card = cb.nextElementSibling;
+        if (card) {
+          card.style.opacity = atLimit ? '0.45' : '';
+          card.style.cursor = atLimit ? 'not-allowed' : '';
+          card.style.pointerEvents = atLimit ? 'none' : '';
+        }
+      }
+    });
+
+    if (submitBtn) submitBtn.disabled = checked === 0;
+  }
+
+  checkboxes.forEach(cb => cb.addEventListener('change', update));
+  update();
+})();
+</script>
 {% endblock %}

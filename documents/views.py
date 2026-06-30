@@ -9,7 +9,15 @@ from django.utils.decorators import method_decorator
 from django.core.paginator import Paginator
 from django.views.decorators.csrf import csrf_protect
 
-from django_q.tasks import async_task
+from documents.tasks import (
+    process_uploaded_document,
+    generate_summary_task,
+    translate_document_task,
+    rewrite_content_task,
+    extract_key_points_task,
+    generate_faqs_task,
+    compare_documents_task,
+)
 
 from .models import Document, Folder, DocumentComparison, Bookmark, Highlight, Note
 from django.db.models import Q
@@ -97,10 +105,10 @@ class DocumentUploadAjaxView(LoginRequiredMixin, View):
 
         file = request.FILES['file']
         
-        # 1. Size Validation (Max 20MB)
-        max_size = 100 * 1024 * 1024  # 20MB
+        # 1. Size Validation (Max 50MB)
+        max_size = 50 * 1024 * 1024  # 50MB
         if file.size > max_size:
-            return JsonResponse({"success": False, "error": "File size exceeds the 20MB limit."}, status=400)
+            return JsonResponse({"success": False, "error": "File size exceeds the 50MB limit."}, status=400)
 
         # 2. Type Validation (PDF Only)
         if not file.name.lower().endswith('.pdf'):
@@ -123,12 +131,8 @@ class DocumentUploadAjaxView(LoginRequiredMixin, View):
             doc.status = 'processing'
             doc.save()
 
-            # Enqueue task through Django Q so it is tracked in the admin panel
-            async_task(
-                'documents.tasks.process_uploaded_document',
-                doc.id,
-                task_name=f"process_doc_{doc.id}"
-            )
+            # Enqueue task via Celery — pushed to Upstash Redis broker
+            process_uploaded_document.delay(doc.id)
         except Exception as e:
             doc.status = 'failed'
             doc.error_message = f"Task queue error: {str(e)}"
@@ -193,7 +197,7 @@ class DocumentDeleteView(LoginRequiredMixin, View):
     def post(self, request, pk):
         doc = get_deletable_document_or_404(request.user, pk)
         try:
-            # Delete vectors from Chroma DB
+            # Delete vectors from Pinecone
             delete_vector_index(doc.id)
             # Delete file on disk
             if doc.file:
@@ -233,12 +237,7 @@ class GenerateSummaryAjaxView(LoginRequiredMixin, View):
             return JsonResponse({"success": False, "error": "Invalid summary type."}, status=400)
             
         try:
-            async_task(
-                'documents.tasks.generate_summary_task',
-                doc.id,
-                summary_type,
-                task_name=f"generate_{summary_type}_summary_{doc.id}"
-            )
+            generate_summary_task.delay(doc.id, summary_type)
             return JsonResponse({"success": True})
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)}, status=500)
@@ -286,12 +285,7 @@ class TranslateDocumentAjaxView(LoginRequiredMixin, View):
             return JsonResponse({"success": False, "error": "Invalid language selected."}, status=400)
             
         try:
-            async_task(
-                'documents.tasks.translate_document_task',
-                doc.id,
-                language,
-                task_name=f"translate_doc_{doc.id}_{language}"
-            )
+            translate_document_task.delay(doc.id, language)
             return JsonResponse({"success": True})
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)}, status=500)
@@ -752,12 +746,7 @@ class RewriteContentAjaxView(LoginRequiredMixin, View):
             doc.rewrite_style = style
             doc.save()
             
-            async_task(
-                'documents.tasks.rewrite_content_task',
-                doc.id,
-                style,
-                task_name=f"rewrite_{doc.id}_{style}"
-            )
+            rewrite_content_task.delay(doc.id, style)
             return JsonResponse({"success": True})
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)}, status=500)
@@ -797,11 +786,7 @@ class ExtractKeyPointsAjaxView(LoginRequiredMixin, View):
             doc.key_points = None
             doc.save()
             
-            async_task(
-                'documents.tasks.extract_key_points_task',
-                doc.id,
-                task_name=f"extract_key_points_{doc.id}"
-            )
+            extract_key_points_task.delay(doc.id)
             return JsonResponse({"success": True})
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)}, status=500)
@@ -841,11 +826,7 @@ class GenerateFAQsAjaxView(LoginRequiredMixin, View):
             doc.faqs = None
             doc.save()
             
-            async_task(
-                'documents.tasks.generate_faqs_task',
-                doc.id,
-                task_name=f"generate_faqs_{doc.id}"
-            )
+            generate_faqs_task.delay(doc.id)
             return JsonResponse({"success": True})
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)}, status=500)
@@ -893,7 +874,7 @@ class DocumentCompareCreateView(LoginRequiredMixin, View):
         
         comparison.status = 'processing'
         comparison.save()
-        async_task('documents.tasks.compare_documents_task', comparison.id)
+        compare_documents_task.delay(comparison.id)
             
         from django.urls import reverse
         return redirect('documents:comparison_detail', comparison_id=comparison.id)

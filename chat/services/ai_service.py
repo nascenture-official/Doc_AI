@@ -3,12 +3,12 @@ import logging
 from django.conf import settings
 from django.core.cache import cache
 from django.template.loader import render_to_string
-from documents.services.vector_store import get_vector_store
+from documents.services.vector_store import get_hybrid_retriever
 from langchain_openai import ChatOpenAI
 from chat.models import Message
-from langchain_classic.retrievers import MultiQueryRetriever
 
 logger = logging.getLogger(__name__)
+
 
 def _is_conversational(user_message_text, api_key):
     """
@@ -34,6 +34,35 @@ def _is_conversational(user_message_text, api_key):
     except Exception as e:
         logger.warning(f"Intent classification failed, defaulting to DOCUMENT: {e}")
         return False  # safe default: run RAG
+
+
+def _split_into_questions(user_message_text, api_key):
+    """
+    Splits a multi-question message into individual questions so each gets
+    its own retrieval pass. Returns a list with the original text unchanged
+    if splitting fails or yields nothing useful.
+    """
+    prompt = (
+        "Split the following user message into a list of individual questions or requests. "
+        "Return ONLY a valid JSON array of strings, one element per question. "
+        "If the message is already a single question, return a JSON array containing just that one string. "
+        "Do NOT add explanations or markdown code fences.\n\n"
+        f"User message: \"{user_message_text}\""
+    )
+    try:
+        llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0.0)
+        raw = llm.invoke(prompt).content.strip()
+        # Strip markdown code fences if the model wraps the output
+        if raw.startswith("```"):
+            raw = raw.strip("`").lstrip("json").strip()
+        questions = json.loads(raw)
+        if isinstance(questions, list):
+            cleaned = [q.strip() for q in questions if isinstance(q, str) and q.strip()]
+            if cleaned:
+                return cleaned
+    except Exception as e:
+        logger.warning(f"Question splitting failed, using original message: {e}")
+    return [user_message_text]
 
 
 def _direct_chat_response(user_message_text, conversation, api_key):
@@ -100,56 +129,47 @@ def stream_chat_response(conversation, user_message_text, user_msg_id, new_title
             llm_stream = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0.7).stream(system_prompt)
 
         else:
+            doc_ids = [str(doc.id) for doc in documents]
+
+            # Base hybrid retriever — alpha=0.7 favors semantic search with BM25 keyword boost
             try:
-                vector_store = get_vector_store()
+                base_retriever = get_hybrid_retriever(document_ids=doc_ids, k=10, alpha=0.7)
             except Exception as e:
-                logger.error(f"Vector store error during stream: {e}")
+                logger.error(f"Hybrid retriever error during stream: {e}")
                 yield f'data: {json.dumps({"type": "error", "message": "Failed to load document index."})}\n\n'
                 return
 
-            if not vector_store:
-                yield f'data: {json.dumps({"type": "error", "message": "No document index found."})}\n\n'
-                return
+            # Split multi-question messages so each question gets its own retrieval pass.
+            # This ensures "phase 1" in a LangGraph PDF isn't drowned out by "attention"
+            # from a different PDF when both are asked together.
+            questions = _split_into_questions(user_message_text, api_key)
+            logger.info(f"Detected {len(questions)} question(s): {questions}")
 
-            doc_ids = [str(doc.id) for doc in documents]
-            
-            llm = ChatOpenAI(model="gpt-4o-mini")
+            # Retrieve candidates per question, deduplicating by content prefix
+            all_candidate_docs = []
+            seen_texts = set()
+            for question in questions:
+                q_docs = base_retriever.invoke(question)
+                for doc in q_docs:
+                    dedup_key = doc.page_content[:200]
+                    if dedup_key not in seen_texts:
+                        seen_texts.add(dedup_key)
+                        all_candidate_docs.append(doc)
 
-            # 1. Base retriever — k=6 so each sub-query fetches enough candidates
-            #    before MultiQueryRetriever deduplicates across all its sub-queries.
-            search_kwargs = {
-                "k": 7,
-                "filter": {"document_id": {"$in": doc_ids}}
-            }
-
-            # 2. Create the base retriever from your vector store
-            base_retriever = vector_store.as_retriever(search_kwargs=search_kwargs)
-
-            # 3. MultiQueryRetriever generates re-worded queries for better recall
-            multiquery_retriever = MultiQueryRetriever.from_llm(
-                retriever=base_retriever,
-                llm=llm,
-                include_original=True
-            )
-
-            # 4. Fetch all candidate chunks from MultiQueryRetriever
-            all_retrieved_docs = multiquery_retriever.invoke(input=user_message_text)
-
-            # Cap to top 6 chunks, but ensure diversity across documents
-            # so that a single document doesn't monopolize the limited chunk count.
-            # We use a round-robin approach to guarantee at least 1 chunk from every relevant document.
+            # Round-robin diversity — 5 chunks per question, capped at 20 total
+            chunk_cap = min(5 * len(questions), 20)
             diverse_docs = []
             docs_by_id = {}
-            for doc in all_retrieved_docs:
+            for doc in all_candidate_docs:
                 doc_id = doc.metadata.get("document_id")
                 if doc_id not in docs_by_id:
                     docs_by_id[doc_id] = []
                 docs_by_id[doc_id].append(doc)
-                
-            while len(diverse_docs) < 6 and docs_by_id:
+
+            while len(diverse_docs) < chunk_cap and docs_by_id:
                 to_remove = []
                 for doc_id, docs in docs_by_id.items():
-                    if len(diverse_docs) >= 6:
+                    if len(diverse_docs) >= chunk_cap:
                         break
                     diverse_docs.append(docs.pop(0))
                     if not docs:
@@ -169,8 +189,7 @@ def stream_chat_response(conversation, user_message_text, user_msg_id, new_title
                     seen.add(key)
                     sources.append({"source": src, "page": pg, "excerpt": doc.page_content[:100] + "..."})
 
-            # Guarantee no more than 10 citations
-            sources = sources[:10]
+            sources = sources[:20]
 
             recent_msgs = Message.objects.filter(conversation=conversation).order_by('-created_at')[1:5]
             history_str = "".join(
@@ -178,15 +197,16 @@ def stream_chat_response(conversation, user_message_text, user_msg_id, new_title
                 for m in reversed(list(recent_msgs))
             )
 
+
             system_prompt = (
                 "You are an AI assistant that answers questions strictly using the provided document context.\n\n"
                 "Rules:\n"
-                "Use ONLY the information found in the Context section below.\n"
-                "Do NOT use your own knowledge or make assumptions.\n"
-                "Do NOT mention source and citation in your answer.\n"
-                "Try to give answer in short and clear.\n"
-                "If the context does not contain enough information, say so honestly.\n\n"
-                f"Context:\n{context}\n\nQuestion:\n{user_message_text}"
+                "- Use ONLY the information found in the Context section below.\n"
+                "- Do NOT use your own knowledge or make assumptions.\n"
+                "- Do NOT mention sources or citations in your answer.\n"
+                "- Keep answers short and clear.\n"
+                "- If the context does not contain enough information for a question, say so honestly.\n\n"
+                f"Context:\n{context}\n\nQuestion(s):\n{user_message_text}"
             )
             llm_stream = ChatOpenAI(model="gpt-5-mini", api_key=api_key, temperature=0.3).stream(system_prompt)
 
@@ -247,4 +267,3 @@ def auto_generate_title(first_message_text):
     except Exception as e:
         logger.warning(f"Failed to auto-generate conversation title: {str(e)}")
         return "New Conversation"
-

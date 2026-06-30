@@ -1187,4 +1187,25 @@ html[data-theme="light"] .lp-btn-cta {
 
 html[data-theme="light"] .lp-btn-cta:hover {
   color: #ffffff;
+}
+
+/* =========================================================
+   LARGE SCREEN OPTIMIZATIONS (2K/4K)
+   ========================================================= */
+@media (min-width: 1400px) {
+  .landing-page .container {
+    max-width: 92%;
+  }
+}
+
+@media (min-width: 1920px) {
+  .landing-page .container {
+    max-width: 94%;
+  }
+}
+
+@media (min-width: 2560px) {
+  .landing-page .container {
+    max-width: 96%;
+  }
 }
