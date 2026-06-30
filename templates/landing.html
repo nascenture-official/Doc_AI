@@ -1,16 +1,18 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>
-    (function() {
+    (function () {
       const theme = localStorage.getItem('theme') || 'dark';
       document.documentElement.setAttribute('data-theme', theme);
     })();
   </script>
-  <meta name="description" content="DocChat — Upload any PDF and chat with it instantly using advanced AI. Get cited answers, auto-summaries, and keyword search in seconds.">
+  <meta name="description"
+    content="DocChat — Upload any PDF and chat with it instantly using advanced AI. Get cited answers, auto-summaries, and keyword search in seconds.">
   <title>DocChat — AI-Powered PDF Chat</title>
 
   <!-- Favicon -->
@@ -22,340 +24,354 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap">
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap">
   <!-- Landing Page CSS (dedicated, separate from app styles) -->
   <link rel="stylesheet" href="{% static 'css/landing.css' %}">
 </head>
+
 <body class="landing-page">
 
-<!-- =========================================================
+  <!-- =========================================================
      1. NAVBAR
      ========================================================= -->
-<nav class="lp-nav" id="lp-nav">
-  <div class="container">
-    <div class="lp-nav-inner">
+  <nav class="lp-nav" id="lp-nav">
+    <div class="container">
+      <div class="lp-nav-inner">
 
-      <!-- Brand -->
-      <a href="#" class="lp-logo-wrap">
-        <div class="lp-logo-icon">📄</div>
-        <span class="lp-logo-text">DocChat</span>
-      </a>
+        <!-- Brand -->
+        <a href="#" class="lp-logo-wrap">
+          <div class="lp-logo-icon">📄</div>
+          <span class="lp-logo-text">DocChat</span>
+        </a>
 
-      <!-- Desktop nav links -->
-      <ul class="lp-nav-links">
-        <li><a href="#how-it-works">How it works</a></li>
-        <li><a href="#features">Features</a></li>
-      </ul>
+        <!-- Desktop nav links -->
+        <ul class="lp-nav-links">
+          <li><a href="#how-it-works">How it works</a></li>
+          <li><a href="#features">Features</a></li>
+        </ul>
 
-      <!-- Desktop CTAs -->
-      <div class="lp-nav-actions">
-        <button class="lp-btn-ghost p-2 text-secondary" id="theme-toggle" title="Toggle theme" style="border: none; background: none; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;">
-          <i class="bi bi-moon fs-5" id="theme-icon"></i>
+        <!-- Desktop CTAs -->
+        <div class="lp-nav-actions">
+          <button class="lp-btn-ghost p-2 text-secondary" id="theme-toggle" title="Toggle theme"
+            style="border: none; background: none; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;">
+            <i class="bi bi-moon fs-5" id="theme-icon"></i>
+          </button>
+          <a href="{% url 'account_login' %}" class="lp-btn-ghost">Log in</a>
+          <a href="{% url 'account_signup' %}" class="lp-btn-primary" id="nav-cta">
+            Get started free <i class="bi bi-arrow-right"></i>
+          </a>
+        </div>
+
+        <!-- Mobile hamburger -->
+        <button class="lp-hamburger" id="lp-hamburger" aria-label="Toggle menu" aria-expanded="false">
+          <i class="bi bi-list"></i>
         </button>
-        <a href="{% url 'account_login' %}" class="lp-btn-ghost">Log in</a>
-        <a href="{% url 'account_signup' %}" class="lp-btn-primary" id="nav-cta">
-          Get started free <i class="bi bi-arrow-right"></i>
+
+      </div>
+
+      <!-- Mobile dropdown menu -->
+      <div class="lp-mobile-menu" id="lp-mobile-menu">
+        <a href="#how-it-works">How it works</a>
+        <a href="#features">Features</a>
+        <a href="{% url 'account_login' %}">Log in</a>
+        <a href="{% url 'account_signup' %}" style="color: var(--primary-light); font-weight: 700;">
+          Get started free →
+        </a>
+        <a href="#" id="mobile-theme-toggle" style="display: flex; align-items: center; gap: 8px;">
+          <i class="bi bi-moon" id="mobile-theme-icon"></i> Toggle Theme
         </a>
       </div>
-
-      <!-- Mobile hamburger -->
-      <button class="lp-hamburger" id="lp-hamburger" aria-label="Toggle menu" aria-expanded="false">
-        <i class="bi bi-list"></i>
-      </button>
-
     </div>
-
-    <!-- Mobile dropdown menu -->
-    <div class="lp-mobile-menu" id="lp-mobile-menu">
-      <a href="#how-it-works">How it works</a>
-      <a href="#features">Features</a>
-      <a href="{% url 'account_login' %}">Log in</a>
-      <a href="{% url 'account_signup' %}" style="color: var(--primary-light); font-weight: 700;">
-        Get started free →
-      </a>
-      <a href="#" id="mobile-theme-toggle" style="display: flex; align-items: center; gap: 8px;">
-        <i class="bi bi-moon" id="mobile-theme-icon"></i> Toggle Theme
-      </a>
-    </div>
-  </div>
-</nav>
+  </nav>
 
 
-<!-- =========================================================
+  <!-- =========================================================
      2. HERO
      ========================================================= -->
-<section class="lp-hero" id="hero">
-  <div class="container">
-    <div class="row align-items-center gy-5">
+  <section class="lp-hero" id="hero">
+    <div class="container">
+      <div class="row align-items-center gy-5">
 
-      <!-- Left: copy -->
-      <div class="col-lg-6">
-        <span class="lp-eyebrow fade-in-up">
-          <i class="bi bi-stars"></i> AI-Powered Document Chat
-        </span>
-        <h1 class="fade-in-up" data-delay="1">
-          Chat with any PDF.<br>
-          Get <span class="gradient-word">instant answers.</span>
-        </h1>
-        <p class="lp-hero-sub fade-in-up" data-delay="2">
-          Upload your documents and ask questions in plain English. DocChat uses advanced AI to find answers directly from your files — with page citations, no hallucinations.
-        </p>
+        <!-- Left: copy -->
+        <div class="col-lg-6">
+          <span class="lp-eyebrow fade-in-up">
+            <i class="bi bi-stars"></i> AI-Powered Document Chat
+          </span>
+          <h1 class="fade-in-up" data-delay="1">
+            Chat with any PDF.<br>
+            Get <span class="gradient-word">instant answers.</span>
+          </h1>
+          <p class="lp-hero-sub fade-in-up" data-delay="2">
+            Upload your documents and ask questions in plain English. DocChat uses hybrid vector search and advanced AI
+            to find answers directly from your files — with exact page citations, no hallucinations. Plus, annotate,
+            summarize, and collaborate with your team.
+          </p>
 
-        <div class="lp-hero-actions fade-in-up" data-delay="3">
-          <a href="{% url 'account_signup' %}" class="lp-btn-hero-primary" id="hero-cta-primary">
-            Start for free <i class="bi bi-arrow-right"></i>
-          </a>
-          <a href="{% url 'account_login' %}" class="lp-btn-hero-secondary" id="hero-cta-secondary">
-            <i class="bi bi-box-arrow-in-right"></i> Sign in
-          </a>
-        </div>
-
-        <div class="lp-trust-row fade-in-up" data-delay="4">
-          <span class="lp-trust-badge"><i class="bi bi-check-circle-fill"></i> No credit card</span>
-          <span class="lp-trust-badge"><i class="bi bi-check-circle-fill"></i> Free to start</span>
-          <span class="lp-trust-badge"><i class="bi bi-check-circle-fill"></i> Works on any device</span>
-        </div>
-      </div>
-
-      <!-- Right: mock chat UI -->
-      <div class="col-lg-6 fade-in-up" data-delay="2">
-        <div class="lp-mock-ui" id="lp-mock-ui">
-
-          <!-- Window chrome -->
-          <div class="lp-mock-chrome">
-            <span class="lp-chrome-dot"></span>
-            <span class="lp-chrome-dot"></span>
-            <span class="lp-chrome-dot"></span>
-            <span class="lp-chrome-title">DocChat — AI Chat</span>
+          <div class="lp-hero-actions fade-in-up" data-delay="3">
+            <a href="{% url 'account_signup' %}" class="lp-btn-hero-primary" id="hero-cta-primary">
+              Start for free <i class="bi bi-arrow-right"></i>
+            </a>
+            <a href="{% url 'account_login' %}" class="lp-btn-hero-secondary" id="hero-cta-secondary">
+              <i class="bi bi-box-arrow-in-right"></i> Sign in
+            </a>
           </div>
 
-          <div class="lp-mock-body">
+          <div class="lp-trust-row fade-in-up" data-delay="4">
+            <span class="lp-trust-badge"><i class="bi bi-check-circle-fill"></i> No credit card</span>
+            <span class="lp-trust-badge"><i class="bi bi-check-circle-fill"></i> Free to start</span>
+            <span class="lp-trust-badge"><i class="bi bi-check-circle-fill"></i> Works on any device</span>
+          </div>
+        </div>
 
-            <!-- Active document pill -->
-            <div class="lp-file-pill">
-              <i class="bi bi-file-earmark-pdf-fill" style="color: #ef4444;"></i>
-              Annual_Report_2024.pdf
-              <span class="status-dot"></span>
-              <span style="color: var(--success); font-size: 11px;">Ready</span>
+        <!-- Right: mock chat UI -->
+        <div class="col-lg-6 fade-in-up" data-delay="2">
+          <div class="lp-mock-ui" id="lp-mock-ui">
+
+            <!-- Window chrome -->
+            <div class="lp-mock-chrome">
+              <span class="lp-chrome-dot"></span>
+              <span class="lp-chrome-dot"></span>
+              <span class="lp-chrome-dot"></span>
+              <span class="lp-chrome-title">DocChat — AI Chat</span>
             </div>
 
-            <!-- Chat messages -->
-            <div class="lp-chat-messages">
+            <div class="lp-mock-body">
 
-              <!-- User message -->
-              <div class="lp-bubble lp-bubble-user">
-                What was the total revenue in Q3?
+              <!-- Active document pill -->
+              <div class="lp-file-pill">
+                <i class="bi bi-file-earmark-pdf-fill" style="color: #ef4444;"></i>
+                Annual_Report_2024.pdf
+                <span class="status-dot"></span>
+                <span style="color: var(--success); font-size: 11px;">Ready</span>
               </div>
 
-              <!-- Typing indicator (fades out after 2s) -->
-              <div class="lp-typing" id="mock-typing">
-                <span class="lp-typing-dot"></span>
-                <span class="lp-typing-dot"></span>
-                <span class="lp-typing-dot"></span>
-              </div>
+              <!-- Chat messages -->
+              <div class="lp-chat-messages">
 
-              <!-- AI response (hidden initially, revealed after typing) -->
-              <div class="lp-bubble lp-bubble-ai" id="mock-ai-response" style="display: none; flex-direction: column;">
-                <div>
-                  According to the document, the total revenue in Q3 was
-                  <strong>$4.2 million</strong>, representing a <strong>23% increase</strong>
-                  compared to Q2, driven primarily by enterprise subscription growth.
+                <!-- User message -->
+                <div class="lp-bubble lp-bubble-user">
+                  What was the total revenue in Q3?
                 </div>
-                <div class="lp-sources-pill">
-                  <i class="bi bi-file-earmark-text"></i>
-                  Annual_Report_2024.pdf — Page 14
-                </div>
-              </div>
 
+                <!-- Typing indicator (fades out after 2s) -->
+                <div class="lp-typing" id="mock-typing">
+                  <span class="lp-typing-dot"></span>
+                  <span class="lp-typing-dot"></span>
+                  <span class="lp-typing-dot"></span>
+                </div>
+
+                <!-- AI response (hidden initially, revealed after typing) -->
+                <div class="lp-bubble lp-bubble-ai" id="mock-ai-response"
+                  style="display: none; flex-direction: column;">
+                  <div>
+                    According to the document, the total revenue in Q3 was
+                    <strong>$4.2 million</strong>, representing a <strong>23% increase</strong>
+                    compared to Q2, driven primarily by enterprise subscription growth.
+                  </div>
+                  <div class="lp-sources-pill">
+                    <i class="bi bi-file-earmark-text"></i>
+                    Annual_Report_2024.pdf — Page 14
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
+      </div>
     </div>
-  </div>
-</section>
+  </section>
 
 
-<!-- =========================================================
+  <!-- =========================================================
      3. SOCIAL PROOF STRIP
      ========================================================= -->
-<section class="lp-social-proof">
-  <div class="container">
-    <p class="lp-social-label">Used across industries for</p>
-    <div class="lp-chips-row">
-      <span class="lp-use-chip"><span class="chip-icon">📊</span> Financial Reports</span>
-      <span class="lp-use-chip"><span class="chip-icon">⚖️</span> Legal Contracts</span>
-      <span class="lp-use-chip"><span class="chip-icon">🎓</span> Research Papers</span>
-      <span class="lp-use-chip"><span class="chip-icon">📋</span> Manuals & Docs</span>
-      <span class="lp-use-chip"><span class="chip-icon">🏢</span> Business Proposals</span>
-      <span class="lp-use-chip"><span class="chip-icon">🔬</span> Scientific Studies</span>
+  <section class="lp-social-proof">
+    <div class="container">
+      <p class="lp-social-label">Used across industries for</p>
+      <div class="lp-chips-row">
+        <span class="lp-use-chip"><span class="chip-icon">📊</span> Financial Reports</span>
+        <span class="lp-use-chip"><span class="chip-icon">⚖️</span> Legal Contracts</span>
+        <span class="lp-use-chip"><span class="chip-icon">🎓</span> Research Papers</span>
+        <span class="lp-use-chip"><span class="chip-icon">📋</span> Manuals & Docs</span>
+        <span class="lp-use-chip"><span class="chip-icon">🏢</span> Business Proposals</span>
+        <span class="lp-use-chip"><span class="chip-icon">🔬</span> Scientific Studies</span>
+      </div>
     </div>
-  </div>
-</section>
+  </section>
 
 
-<!-- =========================================================
+  <!-- =========================================================
      4. HOW IT WORKS
      ========================================================= -->
-<section class="lp-how" id="how-it-works">
-  <div class="container">
-    <div class="text-center mb-2">
-      <p class="lp-section-eyebrow fade-in-up"><i class="bi bi-diagram-3"></i> Simple process</p>
-      <h2 class="lp-section-title fade-in-up" data-delay="1">How DocChat works</h2>
-      <p class="lp-section-sub mx-auto fade-in-up" data-delay="2">
-        From upload to insight in three simple steps. No setup required.
-      </p>
+  <section class="lp-how" id="how-it-works">
+    <div class="container">
+      <div class="text-center mb-2">
+        <p class="lp-section-eyebrow fade-in-up"><i class="bi bi-diagram-3"></i> Simple process</p>
+        <h2 class="lp-section-title fade-in-up" data-delay="1">How DocChat works</h2>
+        <p class="lp-section-sub mx-auto fade-in-up" data-delay="2">
+          From upload to insight in three simple steps. No setup required.
+        </p>
+      </div>
+
+      <div class="lp-steps-grid">
+
+        <!-- Step 1 -->
+        <div class="lp-step-card fade-in-up" data-delay="1">
+          <div class="lp-step-number">01</div>
+          <div class="lp-step-icon-circle">
+            <i class="bi bi-cloud-upload-fill"></i>
+          </div>
+          <h3>Upload your PDF</h3>
+          <p>Drag and drop or select any PDF up to 50MB. Processing starts automatically in the background.</p>
+        </div>
+
+        <!-- Connector -->
+        <div class="lp-step-connector">
+          <div class="lp-step-connector-line"></div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="lp-step-card fade-in-up" data-delay="2">
+          <div class="lp-step-number">02</div>
+          <div class="lp-step-icon-circle">
+            <i class="bi bi-cpu-fill"></i>
+          </div>
+          <h3>AI processes your doc</h3>
+          <p>Our AI extracts, chunks, and indexes your document into a searchable vector store — fully automatic.</p>
+        </div>
+
+        <!-- Connector -->
+        <div class="lp-step-connector">
+          <div class="lp-step-connector-line"></div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="lp-step-card fade-in-up" data-delay="3">
+          <div class="lp-step-number">03</div>
+          <div class="lp-step-icon-circle">
+            <i class="bi bi-chat-dots-fill"></i>
+          </div>
+          <h3>Ask anything</h3>
+          <p>Type your question in plain English. Get cited, context-aware answers with exact page numbers in seconds.
+          </p>
+        </div>
+
+      </div>
     </div>
-
-    <div class="lp-steps-grid">
-
-      <!-- Step 1 -->
-      <div class="lp-step-card fade-in-up" data-delay="1">
-        <div class="lp-step-number">01</div>
-        <div class="lp-step-icon-circle">
-          <i class="bi bi-cloud-upload-fill"></i>
-        </div>
-        <h3>Upload your PDF</h3>
-        <p>Drag and drop or select any PDF up to 20MB. Processing starts automatically in the background.</p>
-      </div>
-
-      <!-- Connector -->
-      <div class="lp-step-connector">
-        <div class="lp-step-connector-line"></div>
-      </div>
-
-      <!-- Step 2 -->
-      <div class="lp-step-card fade-in-up" data-delay="2">
-        <div class="lp-step-number">02</div>
-        <div class="lp-step-icon-circle">
-          <i class="bi bi-cpu-fill"></i>
-        </div>
-        <h3>AI processes your doc</h3>
-        <p>Our AI extracts, chunks, and indexes your document into a searchable vector store — fully automatic.</p>
-      </div>
-
-      <!-- Connector -->
-      <div class="lp-step-connector">
-        <div class="lp-step-connector-line"></div>
-      </div>
-
-      <!-- Step 3 -->
-      <div class="lp-step-card fade-in-up" data-delay="3">
-        <div class="lp-step-number">03</div>
-        <div class="lp-step-icon-circle">
-          <i class="bi bi-chat-dots-fill"></i>
-        </div>
-        <h3>Ask anything</h3>
-        <p>Type your question in plain English. Get cited, context-aware answers with exact page numbers in seconds.</p>
-      </div>
-
-    </div>
-  </div>
-</section>
+  </section>
 
 
-<!-- =========================================================
+  <!-- =========================================================
      5. FEATURES GRID
      ========================================================= -->
-<section class="lp-features" id="features">
-  <div class="container">
-    <div class="text-center mb-2">
-      <p class="lp-section-eyebrow fade-in-up"><i class="bi bi-grid-3x3-gap"></i> Everything you need</p>
-      <h2 class="lp-section-title fade-in-up" data-delay="1">Powerful features, simple interface</h2>
-      <p class="lp-section-sub mx-auto fade-in-up" data-delay="2">
-        Everything you need to stop searching and start answering.
-      </p>
+  <section class="lp-features" id="features">
+    <div class="container">
+      <div class="text-center mb-2">
+        <p class="lp-section-eyebrow fade-in-up"><i class="bi bi-grid-3x3-gap"></i> Everything you need</p>
+        <h2 class="lp-section-title fade-in-up" data-delay="1">Powerful features, simple interface</h2>
+        <p class="lp-section-sub mx-auto fade-in-up" data-delay="2">
+          Everything you need to stop searching and start answering.
+        </p>
+      </div>
+
+      <div class="lp-feature-grid">
+
+        <div class="lp-feature-card fade-in-up" data-delay="1">
+          <div class="lp-feature-icon-circle">
+            <i class="bi bi-robot"></i>
+          </div>
+          <h3>Hybrid AI Search (RAG)</h3>
+          <p>Powered by Pinecone and OpenAI. Combines dense semantic vectors and sparse BM25 vectors for precise, cited
+            answers directly from your PDFs.</p>
+        </div>
+
+        <div class="lp-feature-card fade-in-up" data-delay="2">
+          <div class="lp-feature-icon-circle">
+            <i class="bi bi-magic"></i>
+          </div>
+          <h3>AI Document Actions</h3>
+          <p>Generate summaries, extract key points, create custom FAQs, rewrite sections, and translate documents
+            instantly on-demand.</p>
+        </div>
+
+        <div class="lp-feature-card fade-in-up" data-delay="3">
+          <div class="lp-feature-icon-circle">
+            <i class="bi bi-pencil-square"></i>
+          </div>
+          <h3>Interactive Annotations</h3>
+          <p>A built-in responsive PDF reader. Highlight text, attach custom notes to pages, add bookmarks, and search
+            through your annotations.</p>
+        </div>
+
+        <div class="lp-feature-card fade-in-up" data-delay="4">
+          <div class="lp-feature-icon-circle">
+            <i class="bi bi-layout-split"></i>
+          </div>
+          <h3>PDF Version Comparison</h3>
+          <p>A side-by-side comparison tool that automatically detects and highlights added, removed, and modified
+            sections between PDF versions.</p>
+        </div>
+
+        <div class="lp-feature-card fade-in-up" data-delay="5">
+          <div class="lp-feature-icon-circle">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <h3>Team Collaboration</h3>
+          <p>Create shared workspaces with distinct roles. Invite members, manage permissions, and share documents
+            seamlessly across your team.</p>
+        </div>
+
+        <div class="lp-feature-card fade-in-up" data-delay="6">
+          <div class="lp-feature-icon-circle">
+            <i class="bi bi-upc-scan"></i>
+          </div>
+          <h3>Automatic OCR Fallback</h3>
+          <p>Upload scanned or image-only PDFs without worry. Our pipeline automatically falls back to RapidOCR to
+            extract text seamlessly.</p>
+        </div>
+
+      </div>
     </div>
-
-    <div class="lp-feature-grid">
-
-      <div class="lp-feature-card fade-in-up" data-delay="1">
-        <div class="lp-feature-icon-circle">
-          <i class="bi bi-file-earmark-pdf-fill"></i>
-        </div>
-        <h3>PDF Upload & Processing</h3>
-        <p>Upload PDFs up to 20MB. AI extracts text and builds a searchable vector index automatically in the background.</p>
-      </div>
-
-      <div class="lp-feature-card fade-in-up" data-delay="2">
-        <div class="lp-feature-icon-circle">
-          <i class="bi bi-robot"></i>
-        </div>
-        <h3>Smart AI Answers</h3>
-        <p>Powered by cutting-edge AI. Get context-aware, cited answers grounded strictly in your documents — no hallucinations.</p>
-      </div>
-
-      <div class="lp-feature-card fade-in-up" data-delay="3">
-        <div class="lp-feature-icon-circle">
-          <i class="bi bi-shield-lock-fill"></i>
-        </div>
-        <h3>Secure & Private</h3>
-        <p>Email verification and social OAuth keep your account safe. Your documents are private and belong only to you.</p>
-      </div>
-
-      <div class="lp-feature-card fade-in-up" data-delay="4">
-        <div class="lp-feature-icon-circle">
-          <i class="bi bi-search"></i>
-        </div>
-        <h3>Full-text Keyword Search</h3>
-        <p>Search across all your documents by keyword or phrase. Results show exact page numbers and highlighted excerpts.</p>
-      </div>
-
-      <div class="lp-feature-card fade-in-up" data-delay="5">
-        <div class="lp-feature-icon-circle">
-          <i class="bi bi-card-text"></i>
-        </div>
-        <h3>Auto-generated Summaries</h3>
-        <p>Get short and long AI summaries for every uploaded document — automatically, without writing a single prompt.</p>
-      </div>
-
-      <div class="lp-feature-card fade-in-up" data-delay="6">
-        <div class="lp-feature-icon-circle">
-          <i class="bi bi-phone"></i>
-        </div>
-        <h3>Works on Any Device</h3>
-        <p>Fully responsive layout. Access your documents and chat conversations seamlessly from desktop, tablet, or mobile.</p>
-      </div>
-
-    </div>
-  </div>
-</section>
+  </section>
 
 
-<!-- =========================================================
+  <!-- =========================================================
      6. CTA BANNER
      ========================================================= -->
-<section class="lp-cta-banner" id="cta">
-  <div class="container">
-    <div class="lp-cta-banner-inner fade-in-up">
-      <h2>Ready to stop searching<br>and start answering?</h2>
-      <p>Join DocChat today and chat with your PDFs in minutes. Free to get started.</p>
-      <a href="{% url 'account_signup' %}" class="lp-btn-cta" id="banner-cta">
-        <i class="bi bi-rocket-takeoff-fill"></i>
-        Get started — it's free
-      </a>
-      <p class="lp-cta-note">No credit card required · Secure &amp; private</p>
+  <section class="lp-cta-banner" id="cta">
+    <div class="container">
+      <div class="lp-cta-banner-inner fade-in-up">
+        <h2>Ready to stop searching<br>and start answering?</h2>
+        <p>Join DocChat today and chat with your PDFs in minutes. Free to get started.</p>
+        <a href="{% url 'account_signup' %}" class="lp-btn-cta" id="banner-cta">
+          <i class="bi bi-rocket-takeoff-fill"></i>
+          Get started — it's free
+        </a>
+        <p class="lp-cta-note">No credit card required · Secure &amp; private</p>
+      </div>
     </div>
-  </div>
-</section>
+  </section>
 
 
-<!-- =========================================================
+  <!-- =========================================================
      7. FOOTER
      ========================================================= -->
-<footer class="lp-footer">
-  <div class="container">
-    <p class="lp-footer-copy">
-      © {% now "Y" %} DocChat. All rights reserved.
-    </p>
-  </div>
-</footer>
+  <footer class="lp-footer">
+    <div class="container">
+      <p class="lp-footer-copy">
+        © {% now "Y" %} DocChat. All rights reserved.
+      </p>
+    </div>
+  </footer>
 
 
-<!-- Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{% static 'js/landing.js' %}"></script>
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{% static 'js/landing.js' %}"></script>
 
 </body>
+
 </html>

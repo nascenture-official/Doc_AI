@@ -84,6 +84,9 @@ class NewConversationView(LoginRequiredMixin, View):
         if not doc_ids:
             messages.error(request, "You must select at least one document to start a chat.")
             return redirect(reverse('chat:new'))
+        if len(doc_ids) > 5:
+            messages.error(request, "You can select at most 5 documents per conversation.")
+            return redirect(reverse('chat:new'))
 
         convo = Conversation.objects.create(user=request.user, title="New Conversation")
         # The actual access-control choke point: only documents the user may currently view

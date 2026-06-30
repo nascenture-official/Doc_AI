@@ -34,7 +34,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "crispy_forms",
     "crispy_bootstrap5",
-    "django_q",
+    "django_celery_results",
 
     # Local
     "accounts",
@@ -193,16 +193,32 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ---------------------------------------------------------------------------
-# Background Task Queue (django-q2)
+# Background Task Queue — Celery + Upstash Redis
 # ---------------------------------------------------------------------------
-Q_CLUSTER = {
-    'name': 'DjangQ',
-    'workers': 2,
-    'recycle': 500,
-    'timeout': 600,   # Task killed after 600s if still running
-    'retry': 720,     # Must be > timeout; retries the task after 720s if not completed
-    'orm': 'default', # SQLite ORM backend
-}
+CELERY_BROKER_URL = config('REDIS_URL')  # rediss://... from Upstash (TLS)
+CELERY_RESULT_BACKEND = 'django-db'      # Store task results in PostgreSQL
+CELERY_CACHE_BACKEND = 'default'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 600        # Hard kill after 600s (matches old Q_CLUSTER timeout)
+CELERY_TASK_SOFT_TIME_LIMIT = 570   # Raises SoftTimeLimitExceeded gracefully at 570s
+
+# Upstash Redis uses TLS (rediss://) with a self-signed cert — disable cert verification
+CELERY_BROKER_USE_SSL = {'ssl_cert_reqs': 'none'}
+CELERY_REDIS_BACKEND_USE_SSL = {'ssl_cert_reqs': 'none'}
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True  # Suppress deprecation warning in Celery 5.x
+
+# --- Upstash cost optimisation ---
+# Celery workers send heartbeats every ~2s and gossip messages by default.
+# On Upstash (pay-per-command) this silently burns through your free quota.
+# These flags disable all background chatter; tasks still work perfectly.
+CELERY_WORKER_SEND_TASK_EVENTS = False   # Don't broadcast task events to broker
+CELERY_TASK_SEND_SENT_EVENT = False      # Don't publish a "task-sent" event on every .delay()
+
+
 
 # ---------------------------------------------------------------------------
 # OpenAI Configuration

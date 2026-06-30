@@ -474,12 +474,12 @@
     min-width: 0;
   }
 
-  .doc-title-cell > i {
+  .doc-title-cell>i {
     flex-shrink: 0;
   }
 
   .doc-title-cell a,
-  .doc-title-cell > span {
+  .doc-title-cell>span {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -700,7 +700,8 @@
       border-radius: var(--radius);
     }
 
-    .table-custom th, .table-custom td {
+    .table-custom th,
+    .table-custom td {
       padding: 12px 8px;
     }
   }
@@ -770,8 +771,8 @@
           <div>
             <h3 class="drop-title d-none d-md-block">Drag and drop your PDF files here</h3>
             <h3 class="drop-title d-md-none">Upload your PDF files</h3>
-            <p class="drop-sub d-none d-md-block">or click to browse your files (Max 20MB per PDF)</p>
-            <p class="drop-sub d-md-none">Tap to browse your files (Max 20MB per PDF)</p>
+            <p class="drop-sub d-none d-md-block">or click to browse your files (Max 50MB per PDF)</p>
+            <p class="drop-sub d-md-none">Tap to browse your files (Max 50MB per PDF)</p>
           </div>
         </div>
         <input type="file" id="file-input" multiple accept=".pdf" class="d-none">
@@ -840,18 +841,21 @@
                   {% endif %}
                 </td>
                 <td>
-                  <div class="doc-title-cell" id="doc-title-cell-{{ doc.id }}" style="cursor: pointer;" onclick="const s = this.querySelector('span'); if(s) { s.classList.toggle('text-wrap'); s.classList.toggle('text-break'); }">
+                  <div class="doc-title-cell" id="doc-title-cell-{{ doc.id }}" style="cursor: pointer;"
+                    onclick="const s = this.querySelector('span'); if(s) { s.classList.toggle('text-wrap'); s.classList.toggle('text-break'); }">
                     <i class="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>
                     {% if doc.status == 'ready' %}
                     <a href="{% url 'documents:detail' doc.id %}"
-                      class="text-decoration-none text-light-hover fw-medium" title="View Details & Summaries" onclick="event.stopPropagation();">
+                      class="text-decoration-none text-light-hover fw-medium" title="View Details & Summaries"
+                      onclick="event.stopPropagation();">
                       <span>{{ doc.title }}</span>
                     </a>
                     {% else %}
                     <span title="{{ doc.title }}" class="text-muted">{{ doc.title }}</span>
                     {% endif %}
                     {% if doc.workspace %}
-                    <span class="badge-custom badge-indigo" title="Shared in {{ doc.workspace.name }}" style="margin-left:6px;">
+                    <span class="badge-custom badge-indigo" title="Shared in {{ doc.workspace.name }}"
+                      style="margin-left:6px;">
                       <i class="bi bi-people-fill"></i>
                     </span>
                     {% endif %}

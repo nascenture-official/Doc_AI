@@ -55,10 +55,10 @@ class DocumentViewsTest(TestCase):
         response = self.client.post(reverse("documents:upload_ajax"), {"file": pdf_file})
         self.assertEqual(response.status_code, 302)
 
-    @patch('documents.views.async_task')  # Mock django-q's async_task; the view calls it with a string path
+    @patch('documents.tasks.process_uploaded_document.delay')  # Mock Celery's .delay() so the task doesn't actually run
     @patch('documents.views.get_pdf_page_count')
     @patch('time.sleep', return_value=None)  # Skip sleep in tests
-    def test_upload_success(self, mock_sleep, mock_page_count, mock_async_task):
+    def test_upload_success(self, mock_sleep, mock_page_count, mock_delay):
         mock_page_count.return_value = 5
         self.client.login(username="user1", password="password123")
         
@@ -83,11 +83,8 @@ class DocumentViewsTest(TestCase):
         expected_prefix = f"pdfs/user1/{now.strftime('%Y/%m')}/"
         self.assertTrue(doc.file.name.startswith(expected_prefix), f"Expected path to start with {expected_prefix}, got {doc.file.name}")
 
-        # The view calls: async_task('documents.tasks.process_uploaded_document', doc.id, task_name=...)
-        mock_async_task.assert_called_once()
-        call_args = mock_async_task.call_args
-        self.assertEqual(call_args.args[0], 'documents.tasks.process_uploaded_document')
-        self.assertEqual(call_args.args[1], doc.id)
+        # The view calls: process_uploaded_document.delay(doc.id)
+        mock_delay.assert_called_once_with(doc.id)
         
         # Clean up files created during test
         if doc.file and os.path.exists(doc.file.path):
@@ -110,8 +107,8 @@ class DocumentViewsTest(TestCase):
     def test_upload_size_limit(self, mock_sleep, mock_page_count):
         self.client.login(username="user1", password="password123")
         
-        # Mock file size validation by creating a file larger than 20MB
-        large_content = b"x" * (20 * 1024 * 1024 + 1)
+        # Mock file size validation by creating a file larger than 50MB
+        large_content = b"x" * (50 * 1024 * 1024 + 1)
         pdf_file = SimpleUploadedFile("too_large.pdf", large_content, content_type="application/pdf")
         
         response = self.client.post(reverse("documents:upload_ajax"), {"file": pdf_file})
